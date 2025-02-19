@@ -49,7 +49,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
     pero.setWidth(3);//hrubka pera -3pixely
     pero.setColor(Qt::green);//farba je zelena
     QRect rect;
-    rect= ui->frame->geometry();//ziskate porametre stvorca,do ktoreho chcete kreslit
+    rect= ui->widget->geometry();//ziskate porametre stvorca,do ktoreho chcete kreslit
     rect.translate(0,15);
     painter.drawRect(rect);
 #ifndef DISABLE_OPENCV
