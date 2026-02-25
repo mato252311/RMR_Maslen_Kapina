@@ -56,6 +56,81 @@ void robot::setSpeed(double forw, double rots)
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
 int robot::processThisRobot(const TKobukiData &robotdata)
 {
+    // LOKALIZACIA
+
+    // vypočet natočenia ???
+    fi = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+
+    //prvy beh setne minuly krok na realny kedze encoder môže začinat nie z nuly
+    if(isFirstRun){
+        x = 0;
+        y = 0;
+        prevEncoderLeft = robotdata.EncoderLeft;
+        prevEncoderRight = robotdata.EncoderRight;
+        isFirstRun = false;
+        fi_prev = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+        return 0;
+    }
+
+    // rozdiel v každej vzorke
+    short deltaLeft = (short)(robotdata.EncoderLeft - prevEncoderLeft);
+    short deltaRight = (short)(robotdata.EncoderRight - prevEncoderRight);
+
+    // prepočet na metre
+    double lengthLeft = deltaLeft * tickToMeter;
+    double lengthRight = deltaRight * tickToMeter;
+
+    // korekcia natočenia z gyra aby upravila natočenie kolies z odometrie
+    double deltafi = (lengthRight - lengthLeft) / d;
+    fi = fi_prev + deltafi;
+    while (fi > M_PI) fi -= 2 * M_PI;
+    while (fi < -M_PI) fi += 2 * M_PI;
+
+    if(datacounter%100==0){
+        double gyroFi = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+
+        double diff = gyroFi - fi;
+
+        if (std::abs(diff) > 0.01) {
+            fi = gyroFi;
+        }
+    }
+
+
+    // rovno ked lenghtright a left sa rovnaju
+    if (std::abs(lengthLeft-lengthRight) < 0.001){
+        double length = (lengthLeft + lengthRight) / 2.0;
+        x += length * std::cos(fi);
+        y += length * std::sin(fi);
+    } else{ // obluk ale treba ešte d neviem z kade vyčítať
+        double length = ((d*(lengthRight+lengthLeft))/(2*(lengthRight-lengthLeft)));
+        x += length * (std::sin(fi) - std::sin(fi_prev));
+        y -= length * (std::cos(fi) - std::cos(fi_prev));
+    }
+
+    //prepisanie k+1
+    prevEncoderLeft = robotdata.EncoderLeft;
+    prevEncoderRight = robotdata.EncoderRight;
+    fi_prev = fi;
+
+
+    // POLOHOVANIE
+
+    double targetx = 1.0;
+    double targety = 1.0;
+
+    double deltax = targetx - x;
+    double deltay = targety - y;
+
+    //double sides = deltay/deltax;
+    double w_target = std::atan2(deltay, deltax);
+
+    double l_error = std::sqrt(deltax*deltax + deltay*deltay);
+    double w_error = w_target - fi;
+    while (w_error > M_PI) w_error -= 2 * M_PI;
+    while (w_error < -M_PI) w_error += 2 * M_PI;
+
+
 
 
     ///tu mozete robit s datami z robota

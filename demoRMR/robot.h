@@ -46,6 +46,13 @@ private:
   double x;
   double y;
   double fi;
+
+
+  bool isFirstRun;                          //1st run
+  double fi_prev;                           //predchadzajuce
+  unsigned short prevEncoderLeft = 0;       //predchadzajuce
+  unsigned short prevEncoderRight = 0;      //predchadzajuce
+  const double tickToMeter = 0.000085292090497737556558;
   ///-----------------------------
   /// toto su rychlosti ktore sa nastavuju setSpeedVal a posielaju v
   /// processThisRobot
