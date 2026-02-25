@@ -175,7 +175,6 @@ void MainWindow::on_pushButton_5_clicked()//right
 void MainWindow::on_pushButton_4_clicked() //stop
 {
     _robot.setSpeed(0,0);
-
 }
 
 
@@ -199,8 +198,10 @@ void MainWindow::on_pushButton_clicked()
 #endif
 }
 
-
-
+void MainWindow::on_pushButton_10_clicked()
+{
+    _robot.setGoal(ui->doubleSpinBox->value(), ui->doubleSpinBox_2->value());
+}
 
 
 int MainWindow::paintThisLidar(const std::vector<LaserData> &laserData)
