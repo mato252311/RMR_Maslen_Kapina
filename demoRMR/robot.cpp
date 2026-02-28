@@ -68,6 +68,8 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     //prvy beh setne minuly krok na realny kedze encoder môže začinat nie z nuly
     if(isFirstRun){
         useDirectCommands = 0;
+        goalX = 0;
+        goalY = 0;
         x = 0;
         y = 0;
         prevEncoderLeft = robotdata.EncoderLeft;
@@ -111,30 +113,38 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     while (w_error > M_PI) w_error -= 2 * M_PI;
     while (w_error < -M_PI) w_error += 2 * M_PI;
 
-    double P_v = 5;
-    double P_w = 1;
+    double P_v = 55;
+    double P_w = 10;
 
     double v_max = 60;
+    double w_max = 0.6;
 
     double pom_v = P_v * l_error;
+    double pom_w = P_w * w_error;
+
+    if (pom_w > w_max) {
+        pom_w = w_max;
+    } else if (pom_w < - w_max){
+        pom_w = -w_max;
+    }
 
     if (pom_v > v_max) {
         pom_v = v_max;
     }
 
-    if (l_error > 0.1 && pom_v < 40) {
+    if (l_error > 0.05 && pom_v < 40) {
         pom_v = 40;
     }
 
     if (std::abs(w_error) > 0.5) {
         forwardspeed = 0;
-        rotationspeed = P_w * w_error;
+        rotationspeed = pom_w;
     }else {
         forwardspeed = pom_v;
-        rotationspeed = P_w * w_error;
+        rotationspeed = pom_w;
     }
 
-    if (l_error < 0.05) {
+    if (l_error < 0.03) {
         forwardspeed = 0;
         rotationspeed = 0;
     }
