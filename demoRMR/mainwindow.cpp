@@ -103,11 +103,13 @@ void MainWindow::paintEvent(QPaintEvent *event)
 
 /// toto je slot. niekde v kode existuje signal, ktory je prepojeny. pouziva sa napriklad (v tomto pripade) ak chcete dostat data z jedneho vlakna (robot) do ineho (ui)
 /// prepojenie signal slot je vo funkcii  on_pushButton_9_clicked
-void  MainWindow::setUiValues(double robotX,double robotY,double robotFi)
+void  MainWindow::setUiValues(double robotX,double robotY,double robotFi, double robotSpeed, double robotRotation)
 {
     ui->lineEdit_2->setText(QString::number(robotX));
     ui->lineEdit_3->setText(QString::number(robotY));
     ui->lineEdit_4->setText(QString::number(robotFi));
+    ui->le_forward->setText(QString::number(robotSpeed));
+    ui->le_rotation->setText(QString::number(robotRotation));
 }
 
 
@@ -120,7 +122,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
 
 
 
-    connect(&_robot,SIGNAL(publishPosition(double,double,double)),this,SLOT(setUiValues(double,double,double)));
+    connect(&_robot,SIGNAL(publishPosition(double,double,double,double,double)),this,SLOT(setUiValues(double,double,double, double, double)));
     connect(&_robot,SIGNAL(publishLidar(const std::vector<LaserData> &)),this,SLOT(paintThisLidar(const std::vector<LaserData> &)));
 #ifndef DISABLE_OPENCV
     connect(&_robot,SIGNAL(publishCamera(const cv::Mat &)),this,SLOT(paintThisCamera(const cv::Mat &)));

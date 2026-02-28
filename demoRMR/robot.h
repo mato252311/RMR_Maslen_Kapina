@@ -35,7 +35,7 @@ public:
 
   void setGoal(double goalX, double goalY);
 signals:
-  void publishPosition(double x, double y, double z);
+  void publishPosition(double x, double y, double z, double f, double r);
   void publishLidar(const std::vector<LaserData> &lidata);
 #ifndef DISABLE_OPENCV
   void publishCamera(const cv::Mat &camframe);

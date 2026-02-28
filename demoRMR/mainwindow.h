@@ -83,7 +83,7 @@ private:
   QJoysticks *instance;
 #endif
 public slots:
-  void setUiValues(double robotX, double robotY, double robotFi);
+  void setUiValues(double robotX, double robotY, double robotFi, double robotSpeed, double robotRotation);
 };
 
 #endif // MAINWINDOW_H
