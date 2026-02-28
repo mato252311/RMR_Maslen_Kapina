@@ -68,6 +68,7 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
     //prvy beh setne minuly krok na realny kedze encoder môže začinat nie z nuly
     if(isFirstRun){
+        useDirectCommands = 0;
         x = 0;
         y = 0;
         prevEncoderLeft = robotdata.EncoderLeft;
@@ -85,33 +86,11 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     double lengthLeft = deltaLeft * tickToMeter;
     double lengthRight = deltaRight * tickToMeter;
 
-    // korekcia natočenia z gyra aby upravila natočenie kolies z odometrie
-    double deltafi = (lengthRight - lengthLeft) / d;
-    fi = fi_prev + deltafi;
-    while (fi > M_PI) fi -= 2 * M_PI;
-    while (fi < -M_PI) fi += 2 * M_PI;
-
-    if(datacounter%100==0){
-        double gyroFi = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
-
-        double diff = gyroFi - fi;
-
-        if (std::abs(diff) > 0.01) {
-            fi = gyroFi;
-        }
-    }
 
 
-    // rovno ked lenghtright a left sa rovnaju
-    if (std::abs(lengthLeft-lengthRight) < 0.001){
-        double length = (lengthLeft + lengthRight) / 2.0;
-        x += length * std::cos(fi);
-        y += length * std::sin(fi);
-    } else{ // obluk ale treba ešte d neviem z kade vyčítať
-        double length = ((d*(lengthRight+lengthLeft))/(2*(lengthRight-lengthLeft)));
-        x += length * (std::sin(fi) - std::sin(fi_prev));
-        y -= length * (std::cos(fi) - std::cos(fi_prev));
-    }
+    double length = (lengthLeft + lengthRight) / 2.0;
+    x += length * std::cos(fi);
+    y += length * std::sin(fi);
 
     //prepisanie k+1
     prevEncoderLeft = robotdata.EncoderLeft;
@@ -119,13 +98,10 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     fi_prev = fi;
 
 
-    // POLOHOVANIE
+    // POLOHOVANIE ZDRUZENY REGULATOR
 
-    double targetx = 1.0;
-    double targety = 1.0;
-
-    double deltax = targetx - x;
-    double deltay = targety - y;
+    double deltax = goalX - x;
+    double deltay = goalY - y;
 
     //double sides = deltay/deltax;
     double w_target = std::atan2(deltay, deltax);
@@ -135,6 +111,33 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     while (w_error > M_PI) w_error -= 2 * M_PI;
     while (w_error < -M_PI) w_error += 2 * M_PI;
 
+    double P_v = 5;
+    double P_w = 1;
+
+    double v_max = 60;
+
+    double pom_v = P_v * l_error;
+
+    if (pom_v > v_max) {
+        pom_v = v_max;
+    }
+
+    if (l_error > 0.1 && pom_v < 40) {
+        pom_v = 40;
+    }
+
+    if (std::abs(w_error) > 0.5) {
+        forwardspeed = 0;
+        rotationspeed = P_w * w_error;
+    }else {
+        forwardspeed = pom_v;
+        rotationspeed = P_w * w_error;
+    }
+
+    if (l_error < 0.05) {
+        forwardspeed = 0;
+        rotationspeed = 0;
+    }
 
 
 
