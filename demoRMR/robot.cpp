@@ -63,8 +63,7 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 {
     // LOKALIZACIA
 
-    // vypočet natočenia ???
-    fi = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+
 
     //prvy beh setne minuly krok na realny kedze encoder môže začinat nie z nuly
     if(isFirstRun){
@@ -78,6 +77,9 @@ int robot::processThisRobot(const TKobukiData &robotdata)
         return 0;
     }
 
+    // vypočet natočenia ???
+    fi = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+
     // rozdiel v každej vzorke
     short deltaLeft = (short)(robotdata.EncoderLeft - prevEncoderLeft);
     short deltaRight = (short)(robotdata.EncoderRight - prevEncoderRight);
@@ -85,8 +87,6 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     // prepočet na metre
     double lengthLeft = deltaLeft * tickToMeter;
     double lengthRight = deltaRight * tickToMeter;
-
-
 
     double length = (lengthLeft + lengthRight) / 2.0;
     x += length * std::cos(fi);
