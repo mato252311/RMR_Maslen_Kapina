@@ -122,32 +122,67 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     double pom_v = P_v * l_error;
     double pom_w = P_w * w_error;
 
+    // obmedzenie na max rychlosť otáčania
     if (pom_w > w_max) {
         pom_w = w_max;
     } else if (pom_w < - w_max){
         pom_w = -w_max;
     }
 
+    // obmedzenie na max rychlosť
     if (pom_v > v_max) {
         pom_v = v_max;
     }
 
+    // dzžanie rýchlosti pokial nepríde blízko
     if (l_error > 0.05 && pom_v < 40) {
         pom_v = 40;
     }
 
+    // želane rýchlosti
+    double aim_v = pom_v;
+    double aim_w = pom_w;
+
+    //ak je väčši uhol natočenia ako 0.5 tak sa najprv iba točí
     if (std::abs(w_error) > 0.5) {
-        forwardspeed = 0;
-        rotationspeed = pom_w;
-    }else {
-        forwardspeed = pom_v;
-        rotationspeed = pom_w;
+        aim_v = 0;
     }
 
+    // ak je blízko ciela tak zastane už
     if (l_error < 0.03) {
-        forwardspeed = 0;
-        rotationspeed = 0;
+        aim_v = 0;
+        aim_w = 0;
     }
+
+    // rampa
+    // výpočet odchýlky od vzorky akou ide rampa
+    double diffV = aim_v - forwardspeed;
+    double diffW = aim_w - rotationspeed;
+
+    // ak je odchylka väčšia tak sa rýchlosť iba zväčší o vzorku
+    if (std::abs(diffV) > maxAccV) {
+        if (diffV > 0) {
+            forwardspeed += maxAccV;
+        } else {
+            forwardspeed -= maxAccV;            // možno zmenit na forwardspeed = aim_v, keďže neviem či chceme spomalovať aj rampu
+        }
+    } else {
+        forwardspeed = aim_v;
+    }
+
+    if (std::abs(diffW) > maxAccW) {
+        if (diffW > 0) {
+            rotationspeed += maxAccW;
+        } else {
+            rotationspeed -= maxAccW;           // možno zmenit na rotationspeed = aim_w, keďže neviem či chceme spomalovať aj rampu
+        }
+    } else {
+        rotationspeed = aim_w;
+    }
+
+
+
+
 
 
 
