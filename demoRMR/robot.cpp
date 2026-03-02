@@ -57,10 +57,7 @@ void robot::setSpeed(double forw, double rots)
     useDirectCommands=1;
 }
 
-///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
-/// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
-int robot::processThisRobot(const TKobukiData &robotdata)
-{
+void robot::uloha_1(const TKobukiData &robotdata){
     // LOKALIZACIA
 
 
@@ -76,7 +73,7 @@ int robot::processThisRobot(const TKobukiData &robotdata)
         prevEncoderRight = robotdata.EncoderRight;
         isFirstRun = false;
         fi_prev = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
-        return 0;
+        return;
     }
 
     // vypočet natočenia ???
@@ -179,8 +176,15 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     } else {
         rotationspeed = aim_w;
     }
+}
+
+///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
+/// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
+int robot::processThisRobot(const TKobukiData &robotdata)
+{
 
 
+    uloha_1(robotdata);
 
 
 

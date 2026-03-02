@@ -26,6 +26,7 @@ public:
 
   void initAndStartRobot(std::string ipaddress);
 
+
   // tato funkcia len nastavuje hodnoty.. posielaju sa v callbacku(dobre, kvoli
   // asynchronnosti a zabezpeceniu,ze sa poslu len raz pri viacero prepisoch
   // vramci callu)
@@ -68,6 +69,7 @@ private:
   double rotationspeed; // omega/s
 
   /// toto su callbacky co sa sa volaju s novymi datami
+  void uloha_1(const::TKobukiData &robotdata);
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);
 #ifndef DISABLE_OPENCV
