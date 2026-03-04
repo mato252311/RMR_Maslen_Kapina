@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>793</width>
+    <width>858</width>
     <height>651</height>
    </rect>
   </property>
@@ -224,10 +224,18 @@
          </widget>
         </item>
         <item row="1" column="1">
-         <widget class="QDoubleSpinBox" name="doubleSpinBox"/>
+         <widget class="QDoubleSpinBox" name="doubleSpinBox">
+          <property name="minimum">
+           <double>-99.000000000000000</double>
+          </property>
+         </widget>
         </item>
         <item row="3" column="1">
-         <widget class="QDoubleSpinBox" name="doubleSpinBox_2"/>
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_2">
+          <property name="minimum">
+           <double>-99.000000000000000</double>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -369,7 +377,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>793</width>
+     <width>858</width>
      <height>25</height>
     </rect>
    </property>
