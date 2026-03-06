@@ -80,7 +80,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
                 int dist=k.scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
                 int xp=rect.width()-(rect.width()/2+dist*2*sin((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
                 int yp=rect.height()-(rect.height()/2+dist*2*cos((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
-                if(rect.contains(xp,yp))//ak je bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
+                if(rect.contains(xp,yp))//ak jce bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
                     painter.drawEllipse(QPoint(xp, yp),2,2);
             }
         }

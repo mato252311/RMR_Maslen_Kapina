@@ -1,4 +1,6 @@
 #include "robot.h"
+#include <iostream>
+#include <math.h>
 
 robot::robot(QObject *parent) : QObject(parent)
 {
@@ -194,7 +196,6 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
 
 
-
 ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
     ///kazdy piaty krat, aby to ui moc nepreblikavalo..
@@ -238,7 +239,37 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
 
+    for(int i = 0; i < nSector; i++){
+        histogramVFH[i] = 0.0f;
+    }
     copyOfLaserData=laserData;
+
+    // vytvorenie histogramu
+    for(int i = 0; i < laserData.size(); i++){
+        if(laserData.at(i).scanDistance > VFHmin && laserData.at(i).scanDistance < VFHmax){
+            // podla scanAngle priradime do spravnej stlpca
+            int sector = (360 - laserData.at(i).scanAngle) / sectorSize;
+            // potrebujeme aj na vypocet do kolkych patria
+
+
+            float dst = laserData.at(i).scanDistance;
+
+            float alpha = asin(VFHpointSize / dst) / 3.14159 * 180;
+            int sectorsIntersects = alpha / sectorSize + 1;
+
+            for(int j = sector - sectorsIntersects; j < sector + sectorsIntersects; j++){
+                if(j < 0){
+                    histogramVFH[j + 20] += 1 - (dst / VFHmax);
+                }else if (j >= nSector){
+                    histogramVFH[j - 20] += 1 - (dst / VFHmax);
+                }else{
+                    histogramVFH[j] += 1 - (dst / VFHmax);
+                }
+            }
+        }
+    }
+
+
 
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru

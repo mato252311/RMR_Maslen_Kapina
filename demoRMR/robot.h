@@ -68,6 +68,15 @@ private:
   double forwardspeed;  // mm/s
   double rotationspeed; // omega/s
 
+
+  /// premmene potrebne pre navigaci
+  const static int nSector = 20;
+  float sectorSize = 360.0f / nSector;
+  float histogramVFH[nSector];
+
+  float VFHmin = 200.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f;
+
+
   /// toto su callbacky co sa sa volaju s novymi datami
   void uloha_1(const::TKobukiData &robotdata);
   int processThisLidar(const std::vector<LaserData> &laserData);
