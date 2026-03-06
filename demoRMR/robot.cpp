@@ -79,8 +79,11 @@ void robot::uloha_1(const TKobukiData &robotdata){
     }
 
     // vypočet natočenia ???
-    fi = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+    fi_now = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
 
+    fi = fi_now - fi_prev;
+    while (fi > M_PI) fi -= 2 * M_PI;
+    while (fi < -M_PI) fi += 2 * M_PI;
     // rozdiel v každej vzorke
     short deltaLeft = (short)(robotdata.EncoderLeft - prevEncoderLeft);
     short deltaRight = (short)(robotdata.EncoderRight - prevEncoderRight);
@@ -96,7 +99,6 @@ void robot::uloha_1(const TKobukiData &robotdata){
     //prepisanie k+1
     prevEncoderLeft = robotdata.EncoderLeft;
     prevEncoderRight = robotdata.EncoderRight;
-    fi_prev = fi;
 
 
     // POLOHOVANIE ZDRUZENY REGULATOR
@@ -112,11 +114,11 @@ void robot::uloha_1(const TKobukiData &robotdata){
     while (w_error > M_PI) w_error -= 2 * M_PI;
     while (w_error < -M_PI) w_error += 2 * M_PI;
 
-    double P_v = 55;
-    double P_w = 10;
+    double P_v = 200;
+    double P_w = 5;
 
-    double v_max = 60;
-    double w_max = 0.6;
+    double v_max = 250;
+    double w_max = 0.3;
 
     double pom_v = P_v * l_error;
     double pom_w = P_w * w_error;
@@ -134,8 +136,8 @@ void robot::uloha_1(const TKobukiData &robotdata){
     }
 
     // dzžanie rýchlosti pokial nepríde blízko
-    if (l_error > 0.05 && pom_v < 40) {
-        pom_v = 40;
+    if (l_error > 0.5 && pom_v < 40) {
+        pom_v = 200;
     }
 
     // želane rýchlosti
@@ -148,9 +150,17 @@ void robot::uloha_1(const TKobukiData &robotdata){
     }
 
     // ak je blízko ciela tak zastane už
-    if (l_error < 0.03) {
+    if (l_error < 0.05) {
         aim_v = 0;
         aim_w = 0;
+    }
+
+    /*if (std::abs(w_error) < 0.15) {
+        aim_w = 0;
+    }*/
+
+    if (l_error < 0.5 and l_error > 0.05) {
+        aim_v = 50;
     }
 
     // rampa
@@ -168,6 +178,8 @@ void robot::uloha_1(const TKobukiData &robotdata){
     } else {
         forwardspeed = aim_v;
     }
+
+    // nemusi byt minus rampa
 
     if (std::abs(diffW) > maxAccW) {
         if (diffW > 0) {
@@ -238,11 +250,11 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
+    copyOfLaserData=laserData;
 
-    for(int i = 0; i < nSector; i++){
+    /*for(int i = 0; i < nSector; i++){
         histogramVFH[i] = 0.0f;
     }
-    copyOfLaserData=laserData;
 
     // vytvorenie histogramu
     for(int i = 0; i < laserData.size(); i++){
@@ -267,7 +279,7 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
                 }
             }
         }
-    }
+    }*/
 
 
 
