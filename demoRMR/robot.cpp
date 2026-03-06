@@ -64,6 +64,7 @@ void robot::uloha_1(const TKobukiData &robotdata){
 
 
 
+
     //prvy beh setne minuly krok na realny kedze encoder môže začinat nie z nuly
     if(isFirstRun){
         useDirectCommands = 0;
@@ -252,7 +253,7 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
     copyOfLaserData=laserData;
 
-    /*for(int i = 0; i < nSector; i++){
+    for(int i = 0; i < nSector; i++){
         histogramVFH[i] = 0.0f;
     }
 
@@ -260,7 +261,7 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
     for(int i = 0; i < laserData.size(); i++){
         if(laserData.at(i).scanDistance > VFHmin && laserData.at(i).scanDistance < VFHmax){
             // podla scanAngle priradime do spravnej stlpca
-            int sector = (360 - laserData.at(i).scanAngle) / sectorSize;
+            int sector = laserData.at(i).scanAngle / nSector;
             // potrebujeme aj na vypocet do kolkych patria
 
 
@@ -271,17 +272,28 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
             for(int j = sector - sectorsIntersects; j < sector + sectorsIntersects; j++){
                 if(j < 0){
-                    histogramVFH[j + 20] += 1 - (dst / VFHmax);
+                    histogramVFH[j + nSector] += 1 - (dst / VFHmax);
                 }else if (j >= nSector){
-                    histogramVFH[j - 20] += 1 - (dst / VFHmax);
+                    histogramVFH[j - nSector] += 1 - (dst / VFHmax);
                 }else{
                     histogramVFH[j] += 1 - (dst / VFHmax);
                 }
             }
         }
-    }*/
+    }
 
+    for(int i = 0; i < nSector; i++){
+        bHistogramVFH[i] = histogramVFH[i] > VFHcutOff;
+    }
 
+    if(printDebugLidar % 40 == 0){
+        for(int i = 0; i < nSector; i++){
+            std::cout << bHistogramVFH[i] << ";";
+        }
+        std::cout << "end;" << std::endl;
+    }
+
+    printDebugLidar++;
 
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru

@@ -74,8 +74,10 @@ private:
   const static int nSector = 20;
   float sectorSize = 360.0f / nSector;
   float histogramVFH[nSector];
+  bool bHistogramVFH[nSector];
+  int printDebugLidar = 0;
 
-  float VFHmin = 200.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f;
+  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 15.0f;
 
 
   /// toto su callbacky co sa sa volaju s novymi datami
