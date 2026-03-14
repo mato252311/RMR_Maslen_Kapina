@@ -253,6 +253,24 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
     copyOfLaserData=laserData;
 
+
+
+
+    //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
+    // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
+   // updateLaserPicture=1;
+    processNavigation(laserData);
+
+
+    emit publishLidar(copyOfLaserData, bHistogramVFH);
+   // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
+
+
+    return 0;
+
+}
+
+int robot::processNavigation(const std::vector<LaserData> &laserData){
     for(int i = 0; i < nSector; i++){
         histogramVFH[i] = 0.0f;
     }
@@ -290,18 +308,36 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
     }
 
 
-    //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
-    // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
-   // updateLaserPicture=1;
+    // mame histogram, polohu, ciel a natocenie
+    // vytvarame ciastkovy smer
 
 
+    for(int i = 0; i < nSector; i++){
+        std::cout << bHistogramVFH.at(i) << ";";
+    }
+    std::cout << "end;" << std::endl;
 
-    emit publishLidar(copyOfLaserData, bHistogramVFH);
-   // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
 
+    // todo - kontrola, ci nevieme dostat priamo na final ciel - uhly
+    if(true){ // todo zmenit podminku
+        this->goalX = this->goalXGlobal;
+        this->goalY = this->goalYGlobal;
+        return 0;
+    }
+
+    // pocitame s tym, ze ak su predne smery volne, tak nemusime menit smer
+    if(bHistogramVFH.at(0) || bHistogramVFH.at(nSector - 1)){
+
+        // todo - vyber kandidatskeho smeru
+        // taky co najblizsie ide smerom k konecnemu cielu, ale zaroven nie je nepriechodny
+
+
+        this->goalX = 0;
+        this->goalY = 0;
+        return 0;
+    }
 
     return 0;
-
 }
 
   #ifndef DISABLE_OPENCV

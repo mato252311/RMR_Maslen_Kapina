@@ -81,11 +81,12 @@ private:
 std::vector<bool> bHistogramVFH;
   int printDebugLidar = 0;
 
-  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 10.0f;
+  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 8.3f;
 
 
   /// toto su callbacky co sa sa volaju s novymi datami
   void uloha_1(const::TKobukiData &robotdata);
+  int processNavigation(const std::vector<LaserData> &laserData);
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);
 #ifndef DISABLE_OPENCV
