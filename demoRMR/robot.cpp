@@ -193,6 +193,11 @@ void robot::uloha_1(const TKobukiData &robotdata){
 
 }
 
+void robot::uloha_3(const TKobukiData &robotdata, const std::vector<LaserData>& laserData)
+{
+
+}
+
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
 int robot::processThisRobot(const TKobukiData &robotdata)
