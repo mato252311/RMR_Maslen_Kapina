@@ -60,7 +60,7 @@ private slots:
   void on_pushButton_10_clicked();
 
 
-  int paintThisLidar(const std::vector<LaserData> &laserData);
+  int paintThisLidar(const std::vector<LaserData> &laserData, const std::vector<bool> &bVFHhistogram);
 #ifndef DISABLE_OPENCV
   int paintThisCamera(const cv::Mat &cameraData);
 #endif
@@ -77,6 +77,11 @@ private:
   std::vector<LaserData> copyOfLaserData;
   int datacounter;
   std::string ipaddress;
+  const static int nSector = 20;
+  float sectorSize = 360.0f / nSector;
+
+  bool bVFHhistogram[nSector];
+
 
   QTimer *timer;
 #ifndef DISABLE_JOYSTICK

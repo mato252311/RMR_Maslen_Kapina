@@ -42,6 +42,8 @@ void robot::setSpeedVal(double forw, double rots)
 }
 
 void robot::setGoal(double goalX, double goalY){
+    this->goalXGlobal = goalX;
+    this->goalYGlobal = goalY;
     this->goalX = goalX;
     this->goalY = goalY;
 }
@@ -61,9 +63,6 @@ void robot::setSpeed(double forw, double rots)
 
 void robot::uloha_1(const TKobukiData &robotdata){
     // LOKALIZACIA
-
-
-
 
     //prvy beh setne minuly krok na realny kedze encoder môže začinat nie z nuly
     if(isFirstRun){
@@ -191,6 +190,7 @@ void robot::uloha_1(const TKobukiData &robotdata){
     } else {
         rotationspeed = aim_w;
     }
+
 }
 
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
@@ -261,16 +261,16 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
     for(int i = 0; i < laserData.size(); i++){
         if(laserData.at(i).scanDistance > VFHmin && laserData.at(i).scanDistance < VFHmax){
             // podla scanAngle priradime do spravnej stlpca
-            int sector = laserData.at(i).scanAngle / nSector;
-            // potrebujeme aj na vypocet do kolkych patria
 
-
+            // zistíme veľkost bodu v uhloch
             float dst = laserData.at(i).scanDistance;
-
             float alpha = asin(VFHpointSize / dst) / 3.14159 * 180;
-            int sectorsIntersects = alpha / sectorSize + 1;
 
-            for(int j = sector - sectorsIntersects; j < sector + sectorsIntersects; j++){
+            int from = (laserData.at(i).scanAngle - alpha) / sectorSize;
+            int to = (laserData.at(i).scanAngle + alpha) / sectorSize + 1;
+
+
+            for(int j = from; j < to; j++){
                 if(j < 0){
                     histogramVFH[j + nSector] += 1 - (dst / VFHmax);
                 }else if (j >= nSector){
@@ -282,23 +282,21 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
         }
     }
 
+    bHistogramVFH.clear();
+    bHistogramVFH.erase(bHistogramVFH.begin(), bHistogramVFH.end());
+
     for(int i = 0; i < nSector; i++){
-        bHistogramVFH[i] = histogramVFH[i] > VFHcutOff;
+        bHistogramVFH.insert(bHistogramVFH.end(), histogramVFH[i] > VFHcutOff);
     }
 
-    if(printDebugLidar % 40 == 0){
-        for(int i = 0; i < nSector; i++){
-            std::cout << bHistogramVFH[i] << ";";
-        }
-        std::cout << "end;" << std::endl;
-    }
-
-    printDebugLidar++;
 
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
    // updateLaserPicture=1;
-    emit publishLidar(copyOfLaserData);
+
+
+
+    emit publishLidar(copyOfLaserData, bHistogramVFH);
    // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
 
 

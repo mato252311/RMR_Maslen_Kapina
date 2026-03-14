@@ -19,6 +19,8 @@ Q_DECLARE_METATYPE(cv::Mat)
 Q_DECLARE_METATYPE(skeleton)
 #endif
 Q_DECLARE_METATYPE(std::vector<LaserData>)
+Q_DECLARE_METATYPE(std::vector<bool>)
+
 class robot : public QObject {
   Q_OBJECT
 public:
@@ -37,7 +39,7 @@ public:
   void setGoal(double goalX, double goalY);
 signals:
   void publishPosition(double x, double y, double z, double f, double r);
-  void publishLidar(const std::vector<LaserData> &lidata);
+  void publishLidar(const std::vector<LaserData> &lidata, const std::vector<bool> bVFHHistogram);
 #ifndef DISABLE_OPENCV
   void publishCamera(const cv::Mat &camframe);
 #endif
@@ -53,6 +55,8 @@ private:
   double goalX;
   double goalY;
 
+  double goalXGlobal;
+  double goalYGlobal;
 
   bool isFirstRun;                          //1st run
   double fi_prev;                           //predchadzajuce
@@ -74,10 +78,10 @@ private:
   const static int nSector = 20;
   float sectorSize = 360.0f / nSector;
   float histogramVFH[nSector];
-  bool bHistogramVFH[nSector];
+std::vector<bool> bHistogramVFH;
   int printDebugLidar = 0;
 
-  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 15.0f;
+  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 10.0f;
 
 
   /// toto su callbacky co sa sa volaju s novymi datami
