@@ -136,7 +136,7 @@ void robot::uloha_1(const TKobukiData &robotdata){
     }
 
     // dzžanie rýchlosti pokial nepríde blízko
-    if (l_error > 0.5 && pom_v < 40) {
+    if (l_error > 0.25 && pom_v < 40) {
         pom_v = 200;
     }
 
@@ -307,19 +307,7 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
         bHistogramVFH.insert(bHistogramVFH.end(), histogramVFH[i] > VFHcutOff);
     }
 
-
-    // mame histogram, polohu, ciel a natocenie
-    // vytvarame ciastkovy smer
-
-
-    // for(int i = 0; i < nSector; i++){
-    //     std::cout << bHistogramVFH.at(i) << ";";
-    // }
-    // std::cout << "end;" << std::endl;
-
-
-    // todo - kontrola, ci nevieme dostat priamo na final ciel - uhly
-
+    static short changeDirection = 0;
 
 
     double deltaXGlobal = goalXGlobal - x;
@@ -337,27 +325,55 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     // poloha - natocenie
 
     bool emptyGG = 1;
+
+
     for(int j = sectorGlobalGoal - 1; j <= sectorGlobalGoal + 1; j++){
         int k = j < 0 ? j + nSector : j >= nSector ? j - 20 : j;
         emptyGG &= !bHistogramVFH.at(k);
     }
-    std::cout << emptyGG << std::endl;
+    std::cout << sectorGlobalGoal << std::endl;
 
     if(emptyGG){
         this->goalX = this->goalXGlobal;
         this->goalY = this->goalYGlobal;
+        std::cout << "menim smer na global" << std::endl;
+
         return 0;
     }
 
-    // pocitame s tym, ze ak su predne smery volne, tak nemusime menit smer
+    // pocitame s tym, ze ak nie su predne smery volne, tak menime smer - iba v pripade, že nie je nastaveny glabal goal
     if(bHistogramVFH.at(0) || bHistogramVFH.at(nSector - 1)){
 
-        // todo - vyber kandidatskeho smeru
-        // taky co najblizsie ide smerom k konecnemu cielu, ale zaroven nie je nepriechodny
+        // iba v prípade, že nie je dosť blizko
+        double deltax = sectorGlobalGoal - x;
+        double deltay = sectorGlobalGoal - y;
 
+        double l_error = std::sqrt(deltax*deltax + deltay*deltay);
 
-        this->goalX = 0;
-        this->goalY = 0;
+        if(l_error < 0.5){
+            return 0;
+        }
+
+        int goalSector = -1;
+
+        for(int i = 1; i < 6; i++){
+            if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector)){
+                goalSector = (sectorGlobalGoal + i + nSector) % nSector;
+                break;
+            }else if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector)){
+                goalSector = (sectorGlobalGoal - i + nSector) % nSector;
+                break;
+            }
+        }
+
+        if(goalSector != -1){
+            this->goalX = x + sin(fi + goalSector * sectorSize * 180 / M_PI);
+            this->goalY = x + cos(fi + goalSector * sectorSize * 180 / M_PI);
+
+        }
+
+        std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
+
         return 0;
     }
 
