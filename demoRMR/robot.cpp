@@ -312,14 +312,38 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     // vytvarame ciastkovy smer
 
 
-    for(int i = 0; i < nSector; i++){
-        std::cout << bHistogramVFH.at(i) << ";";
-    }
-    std::cout << "end;" << std::endl;
+    // for(int i = 0; i < nSector; i++){
+    //     std::cout << bHistogramVFH.at(i) << ";";
+    // }
+    // std::cout << "end;" << std::endl;
 
 
     // todo - kontrola, ci nevieme dostat priamo na final ciel - uhly
-    if(true){ // todo zmenit podminku
+
+
+
+    double deltaXGlobal = goalXGlobal - x;
+    double deltaYGlobal = goalYGlobal - y;
+
+    double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
+
+    double w_errorGlobal = (w_targetGlobal - fi) / M_PI * 180;
+
+    int sectorGlobalGoal = w_errorGlobal / nSector;
+
+
+    // ak sektor ktory je smerom global cielu je volny, tak nastavime ciel na global ciel
+    // vypocitame smer k global cielu a porovname
+    // poloha - natocenie
+
+    bool emptyGG = 1;
+    for(int j = sectorGlobalGoal - 1; j <= sectorGlobalGoal + 1; j++){
+        int k = j < 0 ? j + nSector : j >= nSector ? j - 20 : j;
+        emptyGG &= !bHistogramVFH.at(k);
+    }
+    std::cout << emptyGG << std::endl;
+
+    if(emptyGG){
         this->goalX = this->goalXGlobal;
         this->goalY = this->goalYGlobal;
         return 0;
