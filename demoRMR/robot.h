@@ -87,6 +87,9 @@ private:
   /// toto su callbacky co sa sa volaju s novymi datami
   void uloha_1(const::TKobukiData &robotdata);
   int processNavigation(const std::vector<LaserData> &laserData);
+  int processHistogram(const std::vector<LaserData> &laserData);
+
+
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);
 #ifndef DISABLE_OPENCV

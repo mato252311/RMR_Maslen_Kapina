@@ -271,9 +271,94 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 }
 
 int robot::processNavigation(const std::vector<LaserData> &laserData){
+    // treba nechat na zaciatku, spracuva laserData do Histogramu
+    this->processHistogram(laserData);
+
+    // ked sa otaca tak nemenime smer
+    if(this->forwardspeed == 0){
+        return 0;
+    }
+
+    double deltaXGlobal = goalXGlobal - x;
+    double deltaYGlobal = goalYGlobal - y;
+
+    double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
+
+    double w_errorGlobal = (w_targetGlobal - fi) / M_PI * 180;
+
+    int sectorGlobalGoal = w_errorGlobal / nSector;
+
+
+    // ak sektor ktory je smerom global cielu je volny, tak nastavime ciel na global ciel
+    // vypocitame smer k global cielu a porovname
+    // poloha - natocenie
+
+    bool emptyGG = 1;
+
+
+    for(int j = sectorGlobalGoal - 1; j <= sectorGlobalGoal + 1; j++){
+        int k = j < 0 ? j + nSector : j >= nSector ? j - 20 : j;
+        emptyGG &= !bHistogramVFH.at(k);
+    }
+    std::cout << "sector global: " << sectorGlobalGoal << std::endl;
+
+    if(emptyGG){
+        this->goalX = this->goalXGlobal;
+        this->goalY = this->goalYGlobal;
+        std::cout << "menim smer na global" << std::endl;
+
+        return 0;
+    }
+
+    // pocitame s tym, ze ak nie su predne smery volne, tak menime smer - iba v pripade, že nie je nastaveny glabal goal
+    if(bHistogramVFH.at(0) && bHistogramVFH.at(nSector - 1)){
+
+        // iba v prípade, že nie je dosť blizko
+        double deltax = this->goalXGlobal - x;
+        double deltay = this->goalYGlobal - y;
+
+        double l_error = std::sqrt(deltax*deltax + deltay*deltay);
+
+        if(l_error < 0.5){
+            if(l_error < 0.25 || !bHistogramVFH.at(1) || !bHistogramVFH.at(nSector - 2))
+                return 0;
+        }
+
+        std::cout << "L error: " << l_error << std::endl;
+
+        int goalSector = -1;
+
+        for(int i = 1; i < 7; i++){
+            if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector)){
+                goalSector = (sectorGlobalGoal + i + nSector) % nSector;
+                break;
+            }else if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector)){
+                goalSector = (sectorGlobalGoal - i + nSector) % nSector;
+                break;
+            }
+        }
+
+        if(goalSector != -1){
+            this->goalX = x + sin(fi + goalSector * sectorSize * 180 / M_PI);
+            this->goalY = x + cos(fi + goalSector * sectorSize * 180 / M_PI);
+
+        }
+        std::cout << "sector ciel: " << goalSector << std::endl;
+        std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
+
+        return 0;
+    }
+
+    return 0;
+}
+
+int robot::processHistogram(const std::vector<LaserData> &laserData){
     for(int i = 0; i < nSector; i++){
         histogramVFH[i] = 0.0f;
     }
+
+    bHistogramVFH.clear();
+    bHistogramVFH.erase(bHistogramVFH.begin(), bHistogramVFH.end());
 
     // vytvorenie histogramu
     for(int i = 0; i < laserData.size(); i++){
@@ -300,85 +385,12 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
         }
     }
 
-    bHistogramVFH.clear();
-    bHistogramVFH.erase(bHistogramVFH.begin(), bHistogramVFH.end());
 
     for(int i = 0; i < nSector; i++){
         bHistogramVFH.insert(bHistogramVFH.end(), histogramVFH[i] > VFHcutOff);
     }
-
-    static short changeDirection = 0;
-
-
-    double deltaXGlobal = goalXGlobal - x;
-    double deltaYGlobal = goalYGlobal - y;
-
-    double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
-
-    double w_errorGlobal = (w_targetGlobal - fi) / M_PI * 180;
-
-    int sectorGlobalGoal = w_errorGlobal / nSector;
-
-
-    // ak sektor ktory je smerom global cielu je volny, tak nastavime ciel na global ciel
-    // vypocitame smer k global cielu a porovname
-    // poloha - natocenie
-
-    bool emptyGG = 1;
-
-
-    for(int j = sectorGlobalGoal - 1; j <= sectorGlobalGoal + 1; j++){
-        int k = j < 0 ? j + nSector : j >= nSector ? j - 20 : j;
-        emptyGG &= !bHistogramVFH.at(k);
-    }
-    std::cout << sectorGlobalGoal << std::endl;
-
-    if(emptyGG){
-        this->goalX = this->goalXGlobal;
-        this->goalY = this->goalYGlobal;
-        std::cout << "menim smer na global" << std::endl;
-
-        return 0;
-    }
-
-    // pocitame s tym, ze ak nie su predne smery volne, tak menime smer - iba v pripade, že nie je nastaveny glabal goal
-    if(bHistogramVFH.at(0) || bHistogramVFH.at(nSector - 1)){
-
-        // iba v prípade, že nie je dosť blizko
-        double deltax = sectorGlobalGoal - x;
-        double deltay = sectorGlobalGoal - y;
-
-        double l_error = std::sqrt(deltax*deltax + deltay*deltay);
-
-        if(l_error < 0.5){
-            return 0;
-        }
-
-        int goalSector = -1;
-
-        for(int i = 1; i < 6; i++){
-            if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector)){
-                goalSector = (sectorGlobalGoal + i + nSector) % nSector;
-                break;
-            }else if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector)){
-                goalSector = (sectorGlobalGoal - i + nSector) % nSector;
-                break;
-            }
-        }
-
-        if(goalSector != -1){
-            this->goalX = x + sin(fi + goalSector * sectorSize * 180 / M_PI);
-            this->goalY = x + cos(fi + goalSector * sectorSize * 180 / M_PI);
-
-        }
-
-        std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
-
-        return 0;
-    }
-
-    return 0;
 }
+
 
   #ifndef DISABLE_OPENCV
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii initAndStartRobot
