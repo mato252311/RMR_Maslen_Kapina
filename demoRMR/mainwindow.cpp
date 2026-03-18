@@ -95,6 +95,15 @@ void MainWindow::paintEvent(QPaintEvent *event)
                     painter.drawEllipse(QPoint(xp, yp),2,2);
                 }
             }
+            pero.setColor(Qt::blue);//farba je zelena
+            painter.setPen(pero);
+            painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalX()) ,5,5);
+
+
+            pero.setColor(Qt::white);//farba je zelena
+            painter.setPen(pero);
+            painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalGlobalY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalGlobalX()) ,5,5);
+
         }
     }
 #ifndef DISABLE_SKELETON

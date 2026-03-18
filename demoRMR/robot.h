@@ -37,6 +37,11 @@ public:
   void setSpeed(double forw, double rots);
 
   void setGoal(double goalX, double goalY);
+  int getGoalX();
+  int getGoalY();
+
+  int getGoalGlobalX();
+  int getGoalGlobalY();
 signals:
   void publishPosition(double x, double y, double z, double f, double r);
   void publishLidar(const std::vector<LaserData> &lidata, const std::vector<bool> bVFHHistogram);
