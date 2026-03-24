@@ -396,26 +396,26 @@ int robot::processHistogram(const std::vector<LaserData> &laserData){
 
 
 int robot::getGoalX(){
-    int result = -(x + this->goalX * cos(fi) - this->goalY * sin(fi))  * 100;
+    int result = -((this->goalX - x) * cos(fi) + (this->goalY - y) * sin(fi))  * 100;
 
     return result;
 }
 
 int robot::getGoalY(){
-    int result = (y + this->goalY * cos(fi) + this->goalX * sin(fi))  * 100;
+    int result = -((this->goalY - y) * cos(fi) - (this->goalX - x) * sin(fi))  * 100;
 
     return result;
 }
 
 
 int robot::getGoalGlobalX(){
-    int result = -(x + this->goalXGlobal * cos(fi) - this->goalYGlobal * sin(fi))  * 100;
+    int result = -((this->goalXGlobal - x) * cos(fi) + (this->goalYGlobal - y) * sin(fi))  * 100;
 
     return result;
 }
 
 int robot::getGoalGlobalY(){
-    int result = (y + this->goalYGlobal * cos(fi) + this->goalXGlobal * sin(fi))  * 100;
+    int result = -((this->goalYGlobal - y) * cos(fi) - (this->goalXGlobal - x) * sin(fi))  * 100;
 
     return result;
 }
