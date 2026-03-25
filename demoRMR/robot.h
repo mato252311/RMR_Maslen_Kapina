@@ -123,7 +123,7 @@ private:
 
 
   int processNavigation(const std::vector<LaserData> &laserData);
-  int processHistogram(const std::vector<LaserData> &laserData);
+  void processHistogram(const std::vector<LaserData> &laserData);
 
 
 

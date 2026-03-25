@@ -278,7 +278,7 @@ void robot::uloha_3(const std::vector<LaserData>& laserData)
             }
         }
         mapRC = 0;
-        std::cout << "Temporary map reseted." << std::endl;
+        std::cout << "Temp map reset" << std::endl;
     }
 
 
@@ -290,19 +290,6 @@ void robot::uloha_3(const std::vector<LaserData>& laserData)
     }
 
     vykresliMapu();
-
-    /*std::cout << "--- VÝREZ MAPY (stred 40x40) ---" << std::endl;
-    for (int i = 120; i < 160; i++) { // stred je 140, ideme +- 20
-        for (int j = 120; j < 160; j++) {
-            if (map[i][j] == 1) {
-                std::cout << "#"; // Prekážka
-            } else {
-                std::cout << "."; // Prázdno
-            }
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "--- KONIEC VÝPISU ---" << std::endl;*/
 }
 
 void robot::vykresliMapu() {
@@ -311,8 +298,6 @@ void robot::vykresliMapu() {
     for(int i=0; i<280; i++) {
         for(int j=0; j<280; j++) {
             if(map[i][j] == 1) {
-                // Pozor: v počítačovej grafike je Y smerom dole, v tvojej mape hore
-                // Preto musíme použiť 279 - j
                 obr.setPixel(i, 279 - j, qRgb(0, 0, 0));
             }
         }
@@ -378,11 +363,12 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
+
+
+
+    uloha_3(copyOfLaserData);
+
     copyOfLaserData=laserData;
-
-
-
-
 
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
@@ -483,9 +469,9 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     return 0;
 }
 
-int robot::processHistogram(const std::vector<LaserData> &laserData){
+void robot::processHistogram(const std::vector<LaserData> &laserData){
 
-    uloha_3(laserData);
+
 
 
     for(int i = 0; i < nSector; i++){
