@@ -120,21 +120,20 @@ private:
 
   /// toto su callbacky co sa sa volaju s novymi datami
   void uloha_1(const::TKobukiData &robotdata);
-<<<<<<< HEAD
+
 
   int processNavigation(const std::vector<LaserData> &laserData);
   int processHistogram(const std::vector<LaserData> &laserData);
 
 
 
-  void uloha_3(const TKobukiData &robotdata, const std::vector<LaserData> &laserData);
-=======
+
   //uloha_3
 
   void uloha_3(const std::vector<LaserData> &laserData);
   void vykresliMapu();
   //uloha_3
->>>>>>> 2f880f8 (Uloha_3 demo)
+
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);
 #ifndef DISABLE_OPENCV
