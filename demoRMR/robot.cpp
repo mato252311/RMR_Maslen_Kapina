@@ -1,6 +1,7 @@
 #include "robot.h"
 #include <iostream>
 #include <math.h>
+#include <QDateTime>
 
 robot::robot(QObject *parent) : QObject(parent)
 {
@@ -191,11 +192,132 @@ void robot::uloha_1(const TKobukiData &robotdata){
         rotationspeed = aim_w;
     }
 
+    Pose p;
+    p.x = x;
+    p.y = y;
+    p.fi = fi;
+    p.timestamp = robotdata.timestamp;
+
+
+    poseHistory.push_back(p);
+
+    if (poseHistory.size() > 500) {
+        poseHistory.erase(poseHistory.begin());
+    }
 }
 
-void robot::uloha_3(const TKobukiData &robotdata, const std::vector<LaserData>& laserData)
-{
+double interpolate(double p0, double p1, double p2, double p3, double t) {
+    return 0.5 * ((2 * p1) +
+                  (-p0 + p2) * t +
+                  (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+                  (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
+}
 
+
+
+void robot::uloha_3(const std::vector<LaserData>& laserData)
+{
+    if (poseHistory.empty()) return;
+
+    for (int i = 0; i < (int)laserData.size(); i++)
+    {
+        float dist_Li = laserData.at(i).scanDistance / 1000.0f;
+        if (dist_Li < 0.2f || dist_Li > 3.5f) continue;
+        if (dist_Li < 0.7 && dist_Li > 0.6) continue;
+
+        uint32_t scanTime = laserData.at(i).timestamp;
+        float xk, yk, fik;
+        bool found = false;
+        int idx = 1;
+
+        if (poseHistory.size() >= 4) {
+            for (idx = 1; idx < (int)poseHistory.size() - 2; idx++) {
+                if (poseHistory[idx+1].timestamp > scanTime) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (found) {
+            double t = (double)(scanTime - poseHistory[idx].timestamp) /
+                       (double)(poseHistory[idx+1].timestamp - poseHistory[idx].timestamp);
+
+            xk = interpolate(poseHistory[idx-1].x, poseHistory[idx].x, poseHistory[idx+1].x, poseHistory[idx+2].x, t);
+            yk = interpolate(poseHistory[idx-1].y, poseHistory[idx].y, poseHistory[idx+1].y, poseHistory[idx+2].y, t);
+
+            float diff = poseHistory[idx+1].fi - poseHistory[idx].fi;
+            while (diff > M_PI) diff -= 2 * M_PI;
+            while (diff < -M_PI) diff += 2 * M_PI;
+            fik = poseHistory[idx].fi + t * diff;
+        } else {
+            xk = poseHistory.back().x;
+            yk = poseHistory.back().y;
+            fik = poseHistory.back().fi;
+        }
+
+        float angle_rad = (laserData.at(i).scanAngle / 360.0) * (2 * M_PI);
+
+        float tx = xk + dist_Li * std::cos(fik - angle_rad);
+        float ty = yk + dist_Li * std::sin(fik - angle_rad);
+
+        int gridi = std::floor(tx / 0.05) + 140;
+        int gridj = std::floor(ty / 0.05) + 140;
+
+        if (gridi >= 0 && gridi < 280 && gridj >= 0 && gridj < 280) {
+            if(map_temp[gridi][gridj] < 15) map_temp[gridi][gridj]++;
+            if(map_temp[gridi][gridj] > 8) map[gridi][gridj] = 1;
+        }
+    }
+
+    mapRC++;
+    if (mapRC >= 100) {
+        for(int i=0; i<280; i++) {
+            for(int j=0; j<280; j++) {
+                map_temp[i][j] = 0;
+            }
+        }
+        mapRC = 0;
+        std::cout << "Temporary map reseted." << std::endl;
+    }
+
+
+
+    std::cout << "Pocet bodov v skene: " << laserData.size() << std::endl;
+    for (int i = 0; i < 5; i++) {
+        printf("Bod [%d]: %.3f x , %.3f y\n", i, dist_x[i], dist_y[i]);
+
+    }
+
+    vykresliMapu();
+
+    /*std::cout << "--- VÝREZ MAPY (stred 40x40) ---" << std::endl;
+    for (int i = 120; i < 160; i++) { // stred je 140, ideme +- 20
+        for (int j = 120; j < 160; j++) {
+            if (map[i][j] == 1) {
+                std::cout << "#"; // Prekážka
+            } else {
+                std::cout << "."; // Prázdno
+            }
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "--- KONIEC VÝPISU ---" << std::endl;*/
+}
+
+void robot::vykresliMapu() {
+    QImage obr(280, 280, QImage::Format_RGB32);
+    obr.fill(Qt::white);
+    for(int i=0; i<280; i++) {
+        for(int j=0; j<280; j++) {
+            if(map[i][j] == 1) {
+                // Pozor: v počítačovej grafike je Y smerom dole, v tvojej mape hore
+                // Preto musíme použiť 279 - j
+                obr.setPixel(i, 279 - j, qRgb(0, 0, 0));
+            }
+        }
+    }
+    emit publishMap(obr);
 }
 
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
@@ -257,6 +379,7 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
     copyOfLaserData=laserData;
+
 
 
 
@@ -361,6 +484,10 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
 }
 
 int robot::processHistogram(const std::vector<LaserData> &laserData){
+
+    uloha_3(laserData);
+
+
     for(int i = 0; i < nSector; i++){
         histogramVFH[i] = 0.0f;
     }
