@@ -86,7 +86,7 @@ private:
     std::vector<bool> bHistogramVFH;
   int printDebugLidar = 0;
 
-  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 9;
+  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 8;
 
 
   /// toto su callbacky co sa sa volaju s novymi datami

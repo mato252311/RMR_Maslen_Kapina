@@ -84,7 +84,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
                 int xp=rect.width()-(rect.width()/2+dist*2*sin((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
                 int yp=rect.height()-(rect.height()/2+dist*2*cos((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
                 if(rect.contains(xp,yp)){//ak jce bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
-                    int sector = k.scanAngle / sectorSize;
+                    int sector = ( k.scanAngle) / sectorSize;
                     if(bVFHhistogram[sector]){
                         pero.setColor(Qt::red);
                     }else{
@@ -104,6 +104,19 @@ void MainWindow::paintEvent(QPaintEvent *event)
             painter.setPen(pero);
             painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalGlobalY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalGlobalX()) ,5,5);
 
+            for(int i = 0; i < nSector; i++){
+                if(bVFHhistogram[i]){
+                    pero.setColor(Qt::red);
+                }else{
+                    pero.setColor(Qt::green);
+                }
+                pero.setWidth(30);
+                painter.setPen(pero);
+
+
+                painter.drawLine(QPoint(27 + 30*i, 550),QPoint(27 + 30*i, 580));
+
+            }
         }
     }
 #ifndef DISABLE_SKELETON

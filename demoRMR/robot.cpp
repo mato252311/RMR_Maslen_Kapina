@@ -274,20 +274,43 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     // treba nechat na zaciatku, spracuva laserData do Histogramu
     this->processHistogram(laserData);
 
-    // ked sa otaca tak nemenime smer
-    if(this->forwardspeed == 0){
-        return 0;
-    }
 
     double deltaXGlobal = goalXGlobal - x;
     double deltaYGlobal = goalYGlobal - y;
 
     double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
 
-    double w_errorGlobal = (w_targetGlobal - fi) / M_PI * 180;
+    double w_errorGlobal = 360 - (w_targetGlobal - fi) / M_PI * 180;
 
     int sectorGlobalGoal = w_errorGlobal / nSector + nSector;
     sectorGlobalGoal %= nSector;
+
+    // ked sa otaca tak nemenime smer
+    if(this->forwardspeed == 0){
+        return 0;
+    }
+
+    // iba v prípade, že nie je dosť blizko
+    double deltax = this->goalXGlobal - x;
+    double deltay = this->goalYGlobal - y;
+
+    double l_error_global = std::sqrt(deltax*deltax + deltay*deltay);
+
+    if(l_error_global < 0.5){
+        return 0;
+    }
+
+    double deltaX = goalX - x;
+    double deltaY = goalY - y;
+    double l_error = std::sqrt(deltaX*deltaX + deltaY*deltaY);
+
+
+    if(goalX != goalXGlobal || goalY != goalYGlobal){
+
+        if(l_error > 0.5){
+            return 0;
+        }
+    }
 
 
     // ak sektor ktory je smerom global cielu je volny, tak nastavime ciel na global ciel
@@ -295,7 +318,7 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     // poloha - natocenie
     bool emptyGG = 1;
 
-    for(int j = sectorGlobalGoal - 1; j <= sectorGlobalGoal + 1; j++){
+    for(int j = sectorGlobalGoal - 2; j <= sectorGlobalGoal + 2; j++){
         int k = j < 0 ? j + nSector : j >= nSector ? j - nSector : j;
         emptyGG &= !bHistogramVFH.at(k);
     }
@@ -303,51 +326,49 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     if(emptyGG){
         this->goalX = this->goalXGlobal;
         this->goalY = this->goalYGlobal;
-        std::cout << "menim smer na global" << std::endl;
-        std::cout << "sector global: " << sectorGlobalGoal << std::endl;
 
         return 0;
     }
 
     // pocitame s tym, ze ak nie su predne smery volne, tak menime smer - iba v pripade, že nie je nastaveny glabal goal
-    if(bHistogramVFH.at(0) && bHistogramVFH.at(nSector - 1)){
-
-        // iba v prípade, že nie je dosť blizko
-        double deltax = this->goalXGlobal - x;
-        double deltay = this->goalYGlobal - y;
-
-        double l_error = std::sqrt(deltax*deltax + deltay*deltay);
-
-        if(l_error < 0.5){
-            return 0;
-        }
-
-        std::cout << "L error: " << l_error << std::endl;
-
+    if((bHistogramVFH.at(0) && bHistogramVFH.at(nSector - 1)) || l_error < 0.2){
         int goalSector = -1;
 
         // todo dat podmienku, aby nechcel menit smer az moc casto
         for(int i = 1; i < 5; i++){
-            /*if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector) &&
-                !bHistogramVFH.at((sectorGlobalGoal + i + nSector + 1) % nSector)
-                && !bHistogramVFH.at((sectorGlobalGoal + i + nSector - 1) % nSector)){
+            if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector) &&
+                !bHistogramVFH.at((sectorGlobalGoal + i + nSector + 1) % nSector) &&
+                !bHistogramVFH.at((sectorGlobalGoal + i + nSector - 1) % nSector) &&
+                !bHistogramVFH.at((sectorGlobalGoal + i + nSector + 2) % nSector) &&
+                !bHistogramVFH.at((sectorGlobalGoal + i + nSector - 2) % nSector)){
+
                 goalSector = (sectorGlobalGoal + i + nSector) % nSector;
                 break;
-            }else */if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector) &&
+            }else if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector) &&
                        !bHistogramVFH.at((sectorGlobalGoal - i + nSector + 1) % nSector) &&
-                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector - 1) % nSector)){
+                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector - 1) % nSector) &&
+                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector + 2) % nSector) &&
+                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector - 2) % nSector)){
+
                 goalSector = (sectorGlobalGoal - i + nSector) % nSector;
                 break;
             }
         }
 
         if(goalSector != -1){
-            this->goalX = x + sin(fi + goalSector * sectorSize * 180 / M_PI);
-            this->goalY = y + cos(fi + goalSector * sectorSize * 180 / M_PI);
+
+            float w_error = -fi + goalSector * sectorSize / 180 * M_PI;
+
+            this->goalX = x + cos(w_error);
+            this->goalY = y - sin(w_error);
+
+            std::cout << "w error: " << w_error << std::endl;
+            std::cout << "sector ciel: " << goalSector << std::endl;
+            std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
+
         }
 
-        std::cout << "sector ciel: " << goalSector << std::endl;
-        std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
+        std::cout << "nenasiel ciel" << std::endl;
 
         return 0;
     }
@@ -372,18 +393,12 @@ int robot::processHistogram(const std::vector<LaserData> &laserData){
             float dst = laserData.at(i).scanDistance;
             float alpha = asin(VFHpointSize / dst) / 3.14159 * 180;
 
-            int from = (laserData.at(i).scanAngle - alpha) / sectorSize;
-            int to = (laserData.at(i).scanAngle + alpha) / sectorSize + 1;
+            int from = ((laserData.at(i).scanAngle) - alpha) / sectorSize;
+            int to = ((laserData.at(i).scanAngle) + alpha) / sectorSize + 1;
 
 
             for(int j = from; j < to; j++){
-                if(j < 0){
-                    histogramVFH[j + nSector] += 1 - (dst / VFHmax);
-                }else if (j >= nSector){
-                    histogramVFH[j - nSector] += 1 - (dst / VFHmax);
-                }else{
-                    histogramVFH[j] += 1 - (dst / VFHmax);
-                }
+                histogramVFH[(j + nSector) % nSector] += 1 - (dst / VFHmax);
             }
         }
     }
