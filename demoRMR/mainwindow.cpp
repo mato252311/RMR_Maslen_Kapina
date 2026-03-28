@@ -17,7 +17,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 
     //tu je napevno nastavena ip. treba zmenit na to co ste si zadali do text boxu alebo nejaku inu pevnu. co bude spravna
-    ipaddress="127.0.0.1";//192.168.1.11toto je na niektory realny robot.. na lokal budete davat "127.0.0.1"
+    ipaddress="192.168.1.11";//192.168.1.11toto je na niektory realny robot.. na lokal budete davat "127.0.0.1"
 
     ui->setupUi(this);
     datacounter=0;
@@ -158,6 +158,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
 
     connect(&_robot,SIGNAL(publishPosition(double,double,double,double,double)),this,SLOT(setUiValues(double,double,double, double, double)));
     connect(&_robot,SIGNAL(publishLidar(const std::vector<LaserData> &, const std::vector<bool> &)),this,SLOT(paintThisLidar(const std::vector<LaserData> &, const std::vector<bool>&)));
+    connect(&_robot, SIGNAL(publishMap(QImage)), this, SLOT(on_map_received(QImage)));
 #ifndef DISABLE_OPENCV
     connect(&_robot,SIGNAL(publishCamera(const cv::Mat &)),this,SLOT(paintThisCamera(const cv::Mat &)));
 #endif
@@ -237,6 +238,13 @@ void MainWindow::on_pushButton_clicked()
 void MainWindow::on_pushButton_10_clicked()
 {
     _robot.setGoal(ui->doubleSpinBox->value(), ui->doubleSpinBox_2->value());
+}
+
+void MainWindow::on_map_received(QImage mapa_obr)
+{
+    // Toto vykreslí mapu do nového labelu
+    ui->label_mapa->setPixmap(QPixmap::fromImage(mapa_obr).scaled(ui->label_mapa->width(),
+                                                                  ui->label_mapa->height(), Qt::KeepAspectRatio));
 }
 
 

@@ -59,6 +59,8 @@ private slots:
 
   void on_pushButton_10_clicked();
 
+  void on_map_received(QImage mapa_obr);
+
 
   int paintThisLidar(const std::vector<LaserData> &laserData, const std::vector<bool> &bVFHhistogram);
 #ifndef DISABLE_OPENCV

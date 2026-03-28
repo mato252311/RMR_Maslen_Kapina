@@ -21,6 +21,13 @@ Q_DECLARE_METATYPE(skeleton)
 Q_DECLARE_METATYPE(std::vector<LaserData>)
 Q_DECLARE_METATYPE(std::vector<bool>)
 
+struct Pose {
+    float x;
+    float y;
+    float fi;
+    uint32_t timestamp;
+};
+
 class robot : public QObject {
   Q_OBJECT
 public:
@@ -45,6 +52,7 @@ public:
 signals:
   void publishPosition(double x, double y, double z, double f, double r);
   void publishLidar(const std::vector<LaserData> &lidata, const std::vector<bool> bVFHHistogram);
+  void publishMap(QImage mapa);
 #ifndef DISABLE_OPENCV
   void publishCamera(const cv::Mat &camframe);
 #endif
@@ -72,6 +80,27 @@ private:
   const long double d = 0.23;
   double maxAccV = 10.0;
   double maxAccW = 0.1;
+
+  // uloha_3
+  int map_temp[280][280] = {0};
+  int map[280][280] = {0};
+  int mapRC = 0;
+
+
+  float cellSize = 0.05f;
+  int mapSize = 280;
+  int mapOffset = 140;
+
+  float distance_Li[300];
+  float angle_Li[300];
+  float dist_x[300];
+  float dist_y[300];
+
+  std::vector<Pose> poseHistory;
+
+  // uloha_3
+
+
   ///-----------------------------
   /// toto su rychlosti ktore sa nastavuju setSpeedVal a posielaju v
   /// processThisRobot
@@ -91,9 +120,19 @@ private:
 
   /// toto su callbacky co sa sa volaju s novymi datami
   void uloha_1(const::TKobukiData &robotdata);
-  int processNavigation(const std::vector<LaserData> &laserData);
-  int processHistogram(const std::vector<LaserData> &laserData);
 
+
+  int processNavigation(const std::vector<LaserData> &laserData);
+  void processHistogram(const std::vector<LaserData> &laserData);
+
+
+
+
+  //uloha_3
+
+  void uloha_3(const std::vector<LaserData> &laserData);
+  void vykresliMapu();
+  //uloha_3
 
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);
