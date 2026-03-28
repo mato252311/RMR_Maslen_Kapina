@@ -491,10 +491,6 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
 }
 
 void robot::processHistogram(const std::vector<LaserData> &laserData){
-
-
-
-
     for(int i = 0; i < nSector; i++){
         histogramVFH[i] = 0.0f;
     }

@@ -20,7 +20,7 @@ Q_DECLARE_METATYPE(skeleton)
 #endif
 Q_DECLARE_METATYPE(std::vector<LaserData>)
 Q_DECLARE_METATYPE(std::vector<bool>)
-
+Q_DECLARE_METATYPE(QImage)
 struct Pose {
     float x;
     float y;
