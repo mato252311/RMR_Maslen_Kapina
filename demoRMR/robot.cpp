@@ -213,8 +213,6 @@ double interpolate(double p0, double p1, double p2, double p3, double t) {
                   (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
 }
 
-
-
 void robot::uloha_3(const std::vector<LaserData>& laserData)
 {
     if (poseHistory.empty()) return;
@@ -283,11 +281,11 @@ void robot::uloha_3(const std::vector<LaserData>& laserData)
 
 
 
-    std::cout << "Pocet bodov v skene: " << laserData.size() << std::endl;
-    for (int i = 0; i < 5; i++) {
-        printf("Bod [%d]: %.3f x , %.3f y\n", i, dist_x[i], dist_y[i]);
+    // std::cout << "Pocet bodov v skene: " << laserData.size() << std::endl;
+    // for (int i = 0; i < 5; i++) {
+    //     printf("Bod [%d]: %.3f x , %.3f y\n", i, dist_x[i], dist_y[i]);
 
-    }
+    // }
 
     vykresliMapu();
 }
@@ -399,11 +397,6 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     int sectorGlobalGoal = w_errorGlobal / nSector + nSector;
     sectorGlobalGoal %= nSector;
 
-    // ked sa otaca tak nemenime smer
-    if(this->forwardspeed == 0){
-        return 0;
-    }
-
     // iba v prípade, že nie je dosť blizko
     double deltax = this->goalXGlobal - x;
     double deltay = this->goalYGlobal - y;
@@ -411,6 +404,8 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     double l_error_global = std::sqrt(deltax*deltax + deltay*deltay);
 
     if(l_error_global < 0.5){
+        this->goalX = this->goalXGlobal;
+        this->goalY = this->goalYGlobal;
         return 0;
     }
 
@@ -421,7 +416,7 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
 
     if(goalX != goalXGlobal || goalY != goalYGlobal){
 
-        if(l_error > 0.5){
+        if(l_error > 0.7){
             return 0;
         }
     }
@@ -445,7 +440,7 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
     }
 
     // pocitame s tym, ze ak nie su predne smery volne, tak menime smer - iba v pripade, že nie je nastaveny glabal goal
-    if((bHistogramVFH.at(0) && bHistogramVFH.at(nSector - 1)) || l_error < 0.2){
+    if((bHistogramVFH.at(0) || bHistogramVFH.at(nSector - 1) || bHistogramVFH.at(1) || bHistogramVFH.at(nSector - 2)) || l_error < 0.2){
         int goalSector = -1;
 
         // todo dat podmienku, aby nechcel menit smer az moc casto
@@ -479,10 +474,41 @@ int robot::processNavigation(const std::vector<LaserData> &laserData){
             std::cout << "w error: " << w_error << std::endl;
             std::cout << "sector ciel: " << goalSector << std::endl;
             std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
-
+            return 0;
         }
 
-        std::cout << "nenasiel ciel" << std::endl;
+
+        // todo dat podmienku, aby nechcel menit smer az moc casto
+        for(int i = 1; i < 5; i++){
+            if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector) &&
+                !bHistogramVFH.at((sectorGlobalGoal + i + nSector + 1) % nSector) &&
+                !bHistogramVFH.at((sectorGlobalGoal + i + nSector - 1) % nSector)){
+
+                goalSector = (sectorGlobalGoal + i + nSector) % nSector;
+                break;
+            }else if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector) &&
+                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector + 1) % nSector) &&
+                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector - 1) % nSector)){
+
+                goalSector = (sectorGlobalGoal - i + nSector) % nSector;
+                break;
+            }
+        }
+
+        if(goalSector != -1){
+
+            float w_error = -fi + goalSector * sectorSize / 180 * M_PI;
+
+            this->goalX = x + cos(w_error);
+            this->goalY = y - sin(w_error);
+
+            std::cout << "w error: " << w_error << std::endl;
+            std::cout << "sector ciel: " << goalSector << std::endl;
+            std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
+            return 0;
+        }
+
+
 
         return 0;
     }
