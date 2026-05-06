@@ -3,6 +3,8 @@
 #include "librobot/librobot.h"
 #include <QObject>
 #include <QWidget>
+#include <vector>
+#include <utility>
 
 #ifndef DISABLE_OPENCV
 #include "opencv2/core/utility.hpp"
@@ -35,6 +37,17 @@ public:
 
   void initAndStartRobot(std::string ipaddress);
 
+  bool DONE_MApping = false;
+  void exportMapToCSV(const std::string& filename);
+  bool mappingFinishedTriggered = false;
+
+
+  void importMapFromCSV(const std::string& filename);
+  int rezim_navigacie = 1;
+  bool mappingEnabled = false;
+
+  void EnlargeMap();
+
 
   // tato funkcia len nastavuje hodnoty.. posielaju sa v callbacku(dobre, kvoli
   // asynchronnosti a zabezpeceniu,ze sa poslu len raz pri viacero prepisoch
@@ -42,6 +55,8 @@ public:
   void setSpeedVal(double forw, double rots);
   // tato funkcia fyzicky posiela hodnoty do robota
   void setSpeed(double forw, double rots);
+
+  void setLocation(double robotsetX, double robotsetY, double robotsetfi);
 
   void setGoal(double goalX, double goalY);
   int getGoalX();
@@ -82,9 +97,17 @@ private:
   double maxAccW = 0.1;
 
   // uloha_3
-  int map_temp[280][280] = {0};
-  int map[280][280] = {0};
+
+
+
+  uint8_t map_temp[280][280] = {0};
+  uint8_t map[280][280] = {0};
   int mapRC = 0;
+
+  uint8_t map_4[284][284] = {0};
+  uint8_t map_nav[284][284] = {0};
+  std::vector<std::pair<double, double>> planovana_cesta;
+  bool cesta_vypocitana = false;
 
 
   float cellSize = 0.05f;
@@ -133,6 +156,12 @@ private:
   void uloha_3(const std::vector<LaserData> &laserData);
   void vykresliMapu();
   //uloha_3
+
+  //uloha_4
+
+  void uloha_4();
+
+  //uloha_4
 
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);

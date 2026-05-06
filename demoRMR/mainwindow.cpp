@@ -17,7 +17,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 
     //tu je napevno nastavena ip. treba zmenit na to co ste si zadali do text boxu alebo nejaku inu pevnu. co bude spravna
-    ipaddress="127.0.0.1";//192.168.1.11toto je na niektory realny robot.. na lokal budete davat "127.0.0.1"
+    ipaddress="192.168.1.11";//192.168.1.11toto je na niektory realny robot.. na lokal budete davat "127.0.0.1"
 
     ui->setupUi(this);
     datacounter=0;
@@ -238,11 +238,56 @@ void MainWindow::on_pushButton_clicked()
 void MainWindow::on_pushButton_10_clicked()
 {
     _robot.setGoal(ui->doubleSpinBox->value(), ui->doubleSpinBox_2->value());
+    _robot.rezim_navigacie = 1;
+}
+
+void MainWindow::on_pushButton_11_clicked()
+{
+    _robot.DONE_MApping = true;
+
+    ui->pushButton_11->setText("Mapping DONE");
+    ui->pushButton_11->setEnabled(false);
+
+    qDebug() << "Export signal sent to robot.";
+}
+
+void MainWindow::on_pushButton_12_clicked()
+{
+    double targetX = ui->doubleSpinBox_X->value();
+    double targetY = ui->doubleSpinBox_Y->value();
+
+    _robot.setGoal(targetX, targetY);
+    _robot.rezim_navigacie = 2; // Prepneme na Ulohu 4
+
+    qDebug() << "Rezim prepnuty na Ulohu 4 (Flood Fill)";
+}
+
+void MainWindow::on_pushButton_13_clicked()
+{
+    _robot.mappingEnabled = !_robot.mappingEnabled;
+
+    if(_robot.mappingEnabled) ui->pushButton_13->setText("Stop Mapping");
+    else ui->pushButton_13->setText("Start Mapping");
+}
+
+void MainWindow::on_pushButton_14_clicked()
+{
+    _robot.mappingEnabled = false;
+
+    _robot.importMapFromCSV("final_mapa.csv");
+}
+
+void MainWindow::on_pushButton_15_clicked()
+{
+    double robotsetX = ui->doubleSpinBox_3->value();
+    double robotsetY = ui->doubleSpinBox_4->value();
+    double robotsetfi = ui->doubleSpinBox_5->value();
+
+    _robot.setLocation(robotsetX, robotsetY, robotsetfi);
 }
 
 void MainWindow::onMapReceived(QImage mapa_obr)
 {
-    // Toto vykreslí mapu do nového labelu
     ui->label_mapa->setPixmap(QPixmap::fromImage(mapa_obr).scaled(ui->label_mapa->width(),
                                                                   ui->label_mapa->height(), Qt::KeepAspectRatio));
 }
