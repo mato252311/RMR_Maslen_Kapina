@@ -49,6 +49,9 @@ public:
 
   int getGoalGlobalX();
   int getGoalGlobalY();
+
+  std::vector<int> getCandidatesX(), getCandidatesY();
+
 signals:
   void publishPosition(double x, double y, double z, double f, double r);
   void publishLidar(const std::vector<LaserData> &lidata, const std::vector<bool> bVFHHistogram);
@@ -65,21 +68,25 @@ private:
   double y;
   double fi;
 
-  double goalX;
-  double goalY;
+  double goalX = 0;
+  double goalY = 0;
 
-  double goalXGlobal;
-  double goalYGlobal;
+  double goalXGlobal = 0;
+  double goalYGlobal = 0;
 
-  bool isFirstRun;                          //1st run
+  bool isFirstRun = true;                          //1st run
   double fi_prev;                           //predchadzajuce
   double fi_now;
   unsigned short prevEncoderLeft = 0;       //predchadzajuce
   unsigned short prevEncoderRight = 0;      //predchadzajuce
   const long double tickToMeter = 0.000085292090497737556558;
   const long double d = 0.23;
-  double maxAccV = 10.0;
-  double maxAccW = 0.1;
+  double maxAccV = 5.0;
+  double maxAccW = 0.025;
+
+  // uloha1
+  double v_max = 250;
+  double w_max = 0.5;
 
   // uloha_3
   int map_temp[280][280] = {0};
@@ -98,6 +105,8 @@ private:
 
   std::vector<Pose> poseHistory;
 
+  bool navigation = false;
+
   // uloha_3
 
 
@@ -111,20 +120,23 @@ private:
   /// premmene potrebne pre navigaci
   const static int nSector = 20;
   float sectorSize = 360.0f / nSector;
+  float sectorSizeRad = sectorSize / 180.0f * M_PI;
   float histogramVFH[nSector];
     std::vector<bool> bHistogramVFH;
   int printDebugLidar = 0;
 
-  float VFHmin = 125.0f, VFHmax = 1500.0f, VFHpointSize = 150.0f, VFHcutOff = 8;
-
+  float VFHmin = 100.0f, VFHmax = 1500.0f, VFHmaskMax = 1000, VFHpointSize = 150.0f, VFHcutOffLow = 7, VFHcutOffHigh = 8;
 
   /// toto su callbacky co sa sa volaju s novymi datami
   void uloha_1(const::TKobukiData &robotdata);
 
 
-  int processNavigation(const std::vector<LaserData> &laserData);
+  int processNavigation(const std::vector<LaserData> &xlaserData);
   void processHistogram(const std::vector<LaserData> &laserData);
+  void calculateCandidatesNav();
+  double getMinAngle(double a1i, double a2i);
 
+  std::vector<double> candidates, candidatesX, candidatesY;
 
 
 

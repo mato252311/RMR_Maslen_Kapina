@@ -17,7 +17,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 
     //tu je napevno nastavena ip. treba zmenit na to co ste si zadali do text boxu alebo nejaku inu pevnu. co bude spravna
-    ipaddress="127.0.0.1";//192.168.1.11toto je na niektory realny robot.. na lokal budete davat "127.0.0.1"
+    ipaddress="192.168.1.11";//192.168.1.11toto je na niektory realny robot.. na lokal budete davat "127.0.0.1"
 
     ui->setupUi(this);
     datacounter=0;
@@ -84,7 +84,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
                 int xp=rect.width()-(rect.width()/2+dist*2*sin((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
                 int yp=rect.height()-(rect.height()/2+dist*2*cos((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
                 if(rect.contains(xp,yp)){//ak jce bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
-                    int sector = ( k.scanAngle) / sectorSize;
+                    int sector = (360.0f -  k.scanAngle) / sectorSize;
                     if(bVFHhistogram[sector]){
                         pero.setColor(Qt::red);
                     }else{
@@ -95,15 +95,29 @@ void MainWindow::paintEvent(QPaintEvent *event)
                     painter.drawEllipse(QPoint(xp, yp),2,2);
                 }
             }
-            pero.setColor(Qt::blue);//farba je zelena
+
+
+
+
+            // vykreslenie kandidator
+            pero.setColor(Qt::magenta);//farba je fialova
+            painter.setPen(pero);
+            for(int i = 0; i < _robot.getCandidatesX().size(); i++){
+                painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getCandidatesY().at(i), rect.height()/2+rect.topLeft().y() + _robot.getCandidatesX().at(i)) ,5,5);
+            }
+
+            pero.setColor(Qt::white);//farba je biela
+            painter.setPen(pero);
+            painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalGlobalY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalGlobalX()) ,5,5);
+
+
+            // vykreslenie cielov
+            pero.setColor(Qt::blue);//farba je modra
             painter.setPen(pero);
             painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalX()) ,5,5);
 
 
-            pero.setColor(Qt::white);//farba je zelena
-            painter.setPen(pero);
-            painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalGlobalY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalGlobalX()) ,5,5);
-
+            // vykreslenie histogramu
             for(int i = 0; i < nSector; i++){
                 if(bVFHhistogram[i]){
                     pero.setColor(Qt::red);
@@ -115,7 +129,6 @@ void MainWindow::paintEvent(QPaintEvent *event)
 
 
                 painter.drawLine(QPoint(27 + 30*i, 550),QPoint(27 + 30*i, 580));
-
             }
         }
     }

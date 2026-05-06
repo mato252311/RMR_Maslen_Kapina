@@ -47,6 +47,7 @@ void robot::setGoal(double goalX, double goalY){
     this->goalYGlobal = goalY;
     this->goalX = goalX;
     this->goalY = goalY;
+    this->navigation = true;
 }
 
 void robot::setSpeed(double forw, double rots)
@@ -64,6 +65,9 @@ void robot::setSpeed(double forw, double rots)
 
 void robot::uloha_1(const TKobukiData &robotdata){
     // LOKALIZACIA
+
+    float lastFWspeed = forwardspeed;
+    float lastRotSpeed = rotationspeed;
 
     //prvy beh setne minuly krok na realny kedze encoder môže začinat nie z nuly
     if(isFirstRun){
@@ -115,11 +119,8 @@ void robot::uloha_1(const TKobukiData &robotdata){
     while (w_error > M_PI) w_error -= 2 * M_PI;
     while (w_error < -M_PI) w_error += 2 * M_PI;
 
-    double P_v = 200;
+    double P_v = 500;
     double P_w = 5;
-
-    double v_max = 250;
-    double w_max = 0.3;
 
     double pom_v = P_v * l_error;
     double pom_w = P_w * w_error;
@@ -160,10 +161,6 @@ void robot::uloha_1(const TKobukiData &robotdata){
         aim_w = 0;
     }*/
 
-    if (l_error < 0.5 and l_error > 0.05) {
-        aim_v = 50;
-    }
-
     // rampa
     // výpočet odchýlky od vzorky akou ide rampa
     double diffV = aim_v - forwardspeed;
@@ -197,7 +194,6 @@ void robot::uloha_1(const TKobukiData &robotdata){
     p.y = y;
     p.fi = fi;
     p.timestamp = robotdata.timestamp;
-
 
     poseHistory.push_back(p);
 
@@ -382,135 +378,79 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
 }
 
-int robot::processNavigation(const std::vector<LaserData> &laserData){
-    // treba nechat na zaciatku, spracuva laserData do Histogramu
-    this->processHistogram(laserData);
-
+int robot::processNavigation(const std::vector<LaserData> &xlaserData){
 
     double deltaXGlobal = goalXGlobal - x;
     double deltaYGlobal = goalYGlobal - y;
 
-    double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
 
-    double w_errorGlobal = 360 - (w_targetGlobal - fi) / M_PI * 180;
+    double l_error = std::sqrt(deltaXGlobal*deltaXGlobal + deltaYGlobal*deltaYGlobal);
+    if (l_error < 0.1 && navigation) {
+        goalX = goalXGlobal;
+        goalY = goalYGlobal;
+        navigation = false;
+        std::cout << "V cieli!!" << std::endl;
+    }
 
-    int sectorGlobalGoal = w_errorGlobal / nSector + nSector;
-    sectorGlobalGoal %= nSector;
+    // treba nechat na zaciatku, spracuva laserData do Histogramu
+    std::vector<LaserData> laserData;
 
-    // iba v prípade, že nie je dosť blizko
-    double deltax = this->goalXGlobal - x;
-    double deltay = this->goalYGlobal - y;
+    for(int i = 0; i < xlaserData.size(); i++){
+        LaserData l = xlaserData.at(i);
 
-    double l_error_global = std::sqrt(deltax*deltax + deltay*deltay);
+        LaserData nl;
+        nl.scanQuality = l.scanQuality;
+        nl.scanAngle = 360.0f - l.scanAngle;
+        nl.scanDistance = l.scanDistance;
+        nl.timestamp = l.timestamp;
 
-    if(l_error_global < 0.5){
-        this->goalX = this->goalXGlobal;
-        this->goalY = this->goalYGlobal;
+        laserData.insert(laserData.end(), nl);
+    }
+
+
+    this->processHistogram(laserData);
+
+
+    this->calculateCandidatesNav();
+
+
+    if(this->candidates.empty()){
         return 0;
     }
+
+    int k = 0;
+    float g_min = 10000.0f;
+
+
+    // smer cieľov bez uhľa
+    double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
 
     double deltaX = goalX - x;
     double deltaY = goalY - y;
-    double l_error = std::sqrt(deltaX*deltaX + deltaY*deltaY);
+
+    double w_target = std::atan2(deltaY, deltaX);
 
 
-    if(goalX != goalXGlobal || goalY != goalYGlobal){
+    for(int i = 0; i < this->candidates.size(); i++){
+        double wC = candidates.at(i);
 
-        if(l_error > 0.7){
-            return 0;
+        double g = 1 * getMinAngle(wC, w_targetGlobal) + 0.5 * getMinAngle(wC, w_target) + 1.1 * getMinAngle(wC, fi);
+
+        //std::cout << "c" << getMinAngle(wC, fi) << std::endl;
+
+        if(g < g_min){
+            g_min = g;
+            k = i;
         }
     }
 
-
-    // ak sektor ktory je smerom global cielu je volny, tak nastavime ciel na global ciel
-    // vypocitame smer k global cielu a porovname
-    // poloha - natocenie
-    bool emptyGG = 1;
-
-    for(int j = sectorGlobalGoal - 2; j <= sectorGlobalGoal + 2; j++){
-        int k = j < 0 ? j + nSector : j >= nSector ? j - nSector : j;
-        emptyGG &= !bHistogramVFH.at(k);
-    }
-
-    if(emptyGG){
-        this->goalX = this->goalXGlobal;
-        this->goalY = this->goalYGlobal;
-
-        return 0;
-    }
-
-    // pocitame s tym, ze ak nie su predne smery volne, tak menime smer - iba v pripade, že nie je nastaveny glabal goal
-    if((bHistogramVFH.at(0) || bHistogramVFH.at(nSector - 1) || bHistogramVFH.at(1) || bHistogramVFH.at(nSector - 2)) || l_error < 0.2){
-        int goalSector = -1;
-
-        // todo dat podmienku, aby nechcel menit smer az moc casto
-        for(int i = 1; i < 5; i++){
-            if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector) &&
-                !bHistogramVFH.at((sectorGlobalGoal + i + nSector + 1) % nSector) &&
-                !bHistogramVFH.at((sectorGlobalGoal + i + nSector - 1) % nSector) &&
-                !bHistogramVFH.at((sectorGlobalGoal + i + nSector + 2) % nSector) &&
-                !bHistogramVFH.at((sectorGlobalGoal + i + nSector - 2) % nSector)){
-
-                goalSector = (sectorGlobalGoal + i + nSector) % nSector;
-                break;
-            }else if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector) &&
-                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector + 1) % nSector) &&
-                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector - 1) % nSector) &&
-                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector + 2) % nSector) &&
-                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector - 2) % nSector)){
-
-                goalSector = (sectorGlobalGoal - i + nSector) % nSector;
-                break;
-            }
-        }
-
-        if(goalSector != -1){
-
-            float w_error = -fi + goalSector * sectorSize / 180 * M_PI;
-
-            this->goalX = x + cos(w_error);
-            this->goalY = y - sin(w_error);
-
-            std::cout << "w error: " << w_error << std::endl;
-            std::cout << "sector ciel: " << goalSector << std::endl;
-            std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
-            return 0;
-        }
+    //std::cout << "g" << getMinAngle(candidates.at(k), fi) << std::endl;
 
 
-        // todo dat podmienku, aby nechcel menit smer az moc casto
-        for(int i = 1; i < 5; i++){
-            if(!bHistogramVFH.at((sectorGlobalGoal + i + nSector) % nSector) &&
-                !bHistogramVFH.at((sectorGlobalGoal + i + nSector + 1) % nSector) &&
-                !bHistogramVFH.at((sectorGlobalGoal + i + nSector - 1) % nSector)){
+    if(this->navigation){
 
-                goalSector = (sectorGlobalGoal + i + nSector) % nSector;
-                break;
-            }else if(!bHistogramVFH.at((sectorGlobalGoal - i + nSector) % nSector) &&
-                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector + 1) % nSector) &&
-                       !bHistogramVFH.at((sectorGlobalGoal - i + nSector - 1) % nSector)){
-
-                goalSector = (sectorGlobalGoal - i + nSector) % nSector;
-                break;
-            }
-        }
-
-        if(goalSector != -1){
-
-            float w_error = -fi + goalSector * sectorSize / 180 * M_PI;
-
-            this->goalX = x + cos(w_error);
-            this->goalY = y - sin(w_error);
-
-            std::cout << "w error: " << w_error << std::endl;
-            std::cout << "sector ciel: " << goalSector << std::endl;
-            std::cout << "Nastavujem ciel na: " << this->goalX << ", "  << this->goalY << std::endl;
-            return 0;
-        }
-
-
-
-        return 0;
+        this->goalX = this->candidatesX.at(k);
+        this->goalY = this->candidatesY.at(k);
     }
 
     return 0;
@@ -521,10 +461,8 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
         histogramVFH[i] = 0.0f;
     }
 
-    bHistogramVFH.clear();
-    bHistogramVFH.erase(bHistogramVFH.begin(), bHistogramVFH.end());
 
-    // vytvorenie histogramu
+    // vytvorenie histogramu float
     for(int i = 0; i < laserData.size(); i++){
         if(laserData.at(i).scanDistance > VFHmin && laserData.at(i).scanDistance < VFHmax){
             // podla scanAngle priradime do spravnej stlpca
@@ -543,15 +481,198 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
         }
     }
 
-
+    // vytvorenie binarneho histogramu
+    if(bHistogramVFH.size() < nSector - 1){
+        bHistogramVFH.erase(bHistogramVFH.begin(), bHistogramVFH.end());
+        for(int i = 0; i < nSector; i++){
+            bHistogramVFH.insert(bHistogramVFH.end(), histogramVFH[i] > VFHcutOffHigh);
+        }
+    }
     for(int i = 0; i < nSector; i++){
-        bHistogramVFH.insert(bHistogramVFH.end(), histogramVFH[i] > VFHcutOff);
+        if(histogramVFH[i] > VFHcutOffHigh)
+            bHistogramVFH.at(i) = true;
+        else if(histogramVFH[i] < VFHcutOffLow)
+            bHistogramVFH.at(i) = false;
+    }
+
+
+    // vytvorenie dynamickych obmedzeni
+
+    // float rl = 100 / this->w_max; //mm
+    // if(rl < 0)
+    //     rl = 0;
+    // float rs = this->VFHpointSize;
+
+
+    // bool left = false, right = false;
+
+    // for(int i = laserData.size() / 2; i < laserData.size(); i++){
+    //     if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
+    //         float dst = laserData.at(i).scanDistance;
+    //         float alpha = laserData.at(i).scanAngle / 180.0f * M_PI;
+
+    //         float al = M_PI / 2 - alpha;
+
+    //         float ll = sqrt(rl*rl + dst*dst - 2 *rl *dst * cos(al));
+
+    //         if(ll < rl + rs){
+
+    //             for(int j = 0; j < nSector/2; j++){
+    //                 bHistogramVFH.at(j) = true;
+    //             }
+    //             left = true;
+    //             break;
+    //         }
+    //     }
+    // }
+
+    // for(int i = 0; i < laserData.size()/ 2; i++){
+    //     if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
+    //         float dst = laserData.at(i).scanDistance;
+    //         float alpha = 2 * M_PI - laserData.at(i).scanAngle / 180.0f * M_PI;
+
+    //         float ar = M_PI / 2  - alpha;
+
+    //         float lr = sqrt(rl*rl + dst*dst - 2 * rl * dst * cos(ar));
+
+    //         if(lr < rl + rs){
+
+    //             for(int j = nSector/2; j < nSector; j++){
+    //                 bHistogramVFH.at(j) = true;
+    //             }
+    //             right = true;
+    //             break;
+    //         }
+    //     }
+    // }
+
+
+    for(int i = laserData.size() * 2; i < laserData.size(); i++){
+        if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
+            float dst = laserData.at(i).scanDistance;
+
+            if(dst < this->VFHpointSize * 3){
+                for(int j = 0; j < nSector/2; j++){
+                    bHistogramVFH.at(j) = true;
+                }
+            }
+        }
+    }
+
+    for(int i = 0; i < laserData.size()/ 3; i++){
+        if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
+            float dst = laserData.at(i).scanDistance;
+            if(dst < this->VFHpointSize * 2){
+                for(int j = nSector/2; j < nSector; j++){
+                    bHistogramVFH.at(j) = true;
+                }
+
+            }
+        }
     }
 }
 
+void robot::calculateCandidatesNav(){
+    // process bVFH diagram and calculate candidates
+
+    this->candidates.erase(candidates.begin(), candidates.end());
+
+    this->candidatesX.erase(candidatesX.begin(), candidatesX.end());
+    this->candidatesY.erase(candidatesY.begin(), candidatesY.end());
+
+
+    double deltaXGlobal = goalXGlobal - x;
+    double deltaYGlobal = goalYGlobal - y;
+
+    double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
+
+    double w_errorGlobal = w_targetGlobal - fi;
+
+    int sectorGlobalGoal = (int)(w_errorGlobal / sectorSizeRad + nSector) %  nSector;
+
+    if(!bHistogramVFH.at(sectorGlobalGoal)){
+        this->candidates.insert(this->candidates.end(), w_targetGlobal);
+
+        this->candidatesX.insert(this->candidatesX.end(), x + cos(-w_targetGlobal));
+        this->candidatesY.insert(this->candidatesY.end(), y - sin(-w_targetGlobal));
+    }
+
+
+    short sectorStart, sectorSize;
+    bool sector = false;
+
+    // todo prejst histogram, najst volne miesta
+    for(int i = 0; i < nSector * 2; i++){
+        if(!this->bHistogramVFH.at(i % nSector)){ // volne
+            if(sector){
+                sectorSize++;
+            }else{
+                sector = true;
+                sectorStart = i;
+                sectorSize = 1;
+            }
+        }else { // obsadene
+            if(sector){
+                if(sectorStart == 0){
+                    sector = false;
+                    continue; // z dovodu, ze ak je to prvy, nevieme povedať, či na -hodnotach nemá žiadne volne
+                }
+                if(sectorSize > 3){
+
+                    float error1 = (sectorStart + 1.0f ) * this->sectorSizeRad + fi; // bod v histograme
+                    float error2 = (sectorStart + sectorSize - 1.0f) * this->sectorSizeRad + fi; // bod v histograme
+
+                    this->candidates.insert(this->candidates.end(), error1);
+                    this->candidates.insert(this->candidates.end(), error2);
+
+                    this->candidatesX.insert(this->candidatesX.end(), x + cos(-error1));
+                    this->candidatesY.insert(this->candidatesY.end(), y - sin(-error1));
+
+                    this->candidatesX.insert(this->candidatesX.end(), x + cos(-error2));
+                    this->candidatesY.insert(this->candidatesY.end(), y - sin(-error2));
+
+                }else {
+                    // 1 bod v strede
+                    float error = (sectorStart + sectorSize / 2.0f) * this->sectorSizeRad + fi; // bod v histograme
+
+                    this->candidates.insert(this->candidates.end(), error);
+
+                    this->candidatesX.insert(this->candidatesX.end(), x + cos(-error));
+                    this->candidatesY.insert(this->candidatesY.end(), y - sin(-error));
+                }
+                sector = false;
+            }
+            if(i >= nSector){
+                break;
+            }
+        }
+    }
+
+    for (int i = 0; i < candidates.size(); i++){
+        if(candidates.at(i) < 0){
+            candidates.at(i) += M_PI * 2;
+        }
+        if(candidates.at(i) > 2* M_PI){
+            candidates.at(i) -= M_PI * 2;
+        }
+    }
+
+}
+
+double robot::getMinAngle(double a1i, double a2i){
+    double a1 = a1i;
+    double a2 = a2i;
+
+
+    double diff = fmod(a1 - a2, 2 * M_PI);
+    diff = fabs(diff);
+    if (diff > M_PI)
+        diff = 2 * M_PI - diff;
+    return diff;
+}
 
 int robot::getGoalX(){
-    int result = -((this->goalX - x) * cos(fi) + (this->goalY - y) * sin(fi))  * 100;
+    int result = -((this->goalX - x) * cos(fi) + (this->goalY - y) * sin(fi)) * 100;
 
     return result;
 }
@@ -559,6 +680,25 @@ int robot::getGoalX(){
 int robot::getGoalY(){
     int result = -((this->goalY - y) * cos(fi) - (this->goalX - x) * sin(fi))  * 100;
 
+    return result;
+}
+
+
+std::vector<int> robot::getCandidatesX(){
+    std::vector<int> result;
+
+    for (int i = 0; i < candidatesX.size(); i++) {
+        result.insert(result.end(), -((this->candidatesX.at(i) - x) * cos(fi) + (this->candidatesY.at(i) - y) * sin(fi)) * 100);
+    }
+
+    return result;
+}
+
+std::vector<int> robot::getCandidatesY(){
+    std::vector<int> result;
+    for (int i = 0; i < candidatesY.size(); i++) {
+        result.insert(result.end(), -((this->candidatesY.at(i) - y) * cos(fi) - (this->candidatesX.at(i) - x) * sin(fi))  * 100);
+    }
     return result;
 }
 
@@ -574,6 +714,8 @@ int robot::getGoalGlobalY(){
 
     return result;
 }
+
+
 
 
   #ifndef DISABLE_OPENCV
