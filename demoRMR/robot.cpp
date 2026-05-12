@@ -160,7 +160,6 @@ void robot::uloha_1(const TKobukiData &robotdata){
     while (w_error < -M_PI) w_error += 2 * M_PI;
 
     double P_v = 500;
-    double P_v = 500;
     double P_w = 5;
 
     double pom_v = P_v * l_error;
@@ -1148,7 +1147,7 @@ int robot::processNavigation(const std::vector<LaserData> &xlaserData){
         this->goalX = this->candidatesX.at(k);
         this->goalY = this->candidatesY.at(k);
     }
-*/
+
     return 0;
 }
 
