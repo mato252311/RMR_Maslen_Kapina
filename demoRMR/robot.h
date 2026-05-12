@@ -82,7 +82,7 @@ private:
   const long double tickToMeter = 0.000085292090497737556558;
   const long double d = 0.23;
   double maxAccV = 5.0;
-  double maxAccW = 0.025;
+  double maxAccW = 0.015;
 
   // uloha1
   double v_max = 250;

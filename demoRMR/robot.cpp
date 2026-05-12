@@ -385,7 +385,7 @@ int robot::processNavigation(const std::vector<LaserData> &xlaserData){
 
 
     double l_error = std::sqrt(deltaXGlobal*deltaXGlobal + deltaYGlobal*deltaYGlobal);
-    if (l_error < 0.1 && navigation) {
+    if (l_error < 0.25 && navigation) {
         goalX = goalXGlobal;
         goalY = goalYGlobal;
         navigation = false;
@@ -419,7 +419,7 @@ int robot::processNavigation(const std::vector<LaserData> &xlaserData){
     }
 
     int k = 0;
-    float g_min = 10000.0f;
+    float g_min = 100.0f;
 
 
     // smer cieľov bez uhľa
@@ -436,16 +436,11 @@ int robot::processNavigation(const std::vector<LaserData> &xlaserData){
 
         double g = 1 * getMinAngle(wC, w_targetGlobal) + 0.5 * getMinAngle(wC, w_target) + 1.1 * getMinAngle(wC, fi);
 
-        //std::cout << "c" << getMinAngle(wC, fi) << std::endl;
-
         if(g < g_min){
             g_min = g;
             k = i;
         }
     }
-
-    //std::cout << "g" << getMinAngle(candidates.at(k), fi) << std::endl;
-
 
     if(this->navigation){
 
@@ -494,57 +489,6 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
         else if(histogramVFH[i] < VFHcutOffLow)
             bHistogramVFH.at(i) = false;
     }
-
-
-    // vytvorenie dynamickych obmedzeni
-
-    // float rl = 100 / this->w_max; //mm
-    // if(rl < 0)
-    //     rl = 0;
-    // float rs = this->VFHpointSize;
-
-
-    // bool left = false, right = false;
-
-    // for(int i = laserData.size() / 2; i < laserData.size(); i++){
-    //     if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
-    //         float dst = laserData.at(i).scanDistance;
-    //         float alpha = laserData.at(i).scanAngle / 180.0f * M_PI;
-
-    //         float al = M_PI / 2 - alpha;
-
-    //         float ll = sqrt(rl*rl + dst*dst - 2 *rl *dst * cos(al));
-
-    //         if(ll < rl + rs){
-
-    //             for(int j = 0; j < nSector/2; j++){
-    //                 bHistogramVFH.at(j) = true;
-    //             }
-    //             left = true;
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // for(int i = 0; i < laserData.size()/ 2; i++){
-    //     if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
-    //         float dst = laserData.at(i).scanDistance;
-    //         float alpha = 2 * M_PI - laserData.at(i).scanAngle / 180.0f * M_PI;
-
-    //         float ar = M_PI / 2  - alpha;
-
-    //         float lr = sqrt(rl*rl + dst*dst - 2 * rl * dst * cos(ar));
-
-    //         if(lr < rl + rs){
-
-    //             for(int j = nSector/2; j < nSector; j++){
-    //                 bHistogramVFH.at(j) = true;
-    //             }
-    //             right = true;
-    //             break;
-    //         }
-    //     }
-    // }
 
 
     for(int i = laserData.size() * 2; i < laserData.size(); i++){
