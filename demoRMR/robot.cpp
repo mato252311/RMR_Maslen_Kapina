@@ -2,6 +2,8 @@
 #include <iostream>
 #include <math.h>
 #include <QDateTime>
+#include <fstream>
+#include <sstream>
 
 robot::robot(QObject *parent) : QObject(parent)
 {
@@ -50,6 +52,13 @@ void robot::setGoal(double goalX, double goalY){
     this->navigation = true;
 }
 
+void robot::setLocation(double robotsetX, double robotsetY, double robotsetfi){
+    this->x = robotsetX;
+    this->y = robotsetY;
+    this->fi = robotsetfi;
+    this->fi_prev = fi_now-robotsetfi;
+}
+
 void robot::setSpeed(double forw, double rots)
 {
     if(forw==0 && rots!=0)
@@ -79,25 +88,56 @@ void robot::uloha_1(const TKobukiData &robotdata){
         prevEncoderLeft = robotdata.EncoderLeft;
         prevEncoderRight = robotdata.EncoderRight;
         isFirstRun = false;
-        fi_prev = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+        fi_offset = ((robotdata.GyroAngle / 100.0) / 360.0)
+            * (2 * M_PI);
+
+        fi_prev = 0;
+        fi = 0;
         return;
     }
 
     // vypočet natočenia ???
-    fi_now = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+    double gyro_angle =
+        ((robotdata.GyroAngle / 100.0) / 360.0)
+        * (2 * M_PI);
 
-    fi = fi_now - fi_prev;
-    while (fi > M_PI) fi -= 2 * M_PI;
-    while (fi < -M_PI) fi += 2 * M_PI;
+    // absolútny heading od štartu
+    fi_now = gyro_angle - fi_offset;
+
+    // normalizácia
+    while (fi_now > M_PI)
+        fi_now -= 2 * M_PI;
+
+    while (fi_now < -M_PI)
+        fi_now += 2 * M_PI;
+
+    // zmena uhla
+    double delta_fi = fi_now - fi_prev;
+
+    while (delta_fi > M_PI)
+        delta_fi -= 2 * M_PI;
+
+    while (delta_fi < -M_PI)
+        delta_fi += 2 * M_PI;
+
+    // ABSOLÚTNY uhol robota
+    fi = fi_now;
+
+
     // rozdiel v každej vzorke
     short deltaLeft = (short)(robotdata.EncoderLeft - prevEncoderLeft);
     short deltaRight = (short)(robotdata.EncoderRight - prevEncoderRight);
-
     // prepočet na metre
     double lengthLeft = deltaLeft * tickToMeter;
     double lengthRight = deltaRight * tickToMeter;
 
+
     double length = (lengthLeft + lengthRight) / 2.0;
+
+
+    uloha_5_pohyb(length, delta_fi);
+
+
     x += length * std::cos(fi);
     y += length * std::sin(fi);
 
@@ -119,6 +159,7 @@ void robot::uloha_1(const TKobukiData &robotdata){
     while (w_error > M_PI) w_error -= 2 * M_PI;
     while (w_error < -M_PI) w_error += 2 * M_PI;
 
+    double P_v = 500;
     double P_v = 500;
     double P_w = 5;
 
@@ -161,6 +202,10 @@ void robot::uloha_1(const TKobukiData &robotdata){
         aim_w = 0;
     }*/
 
+    /*if (l_error < 0.5 and l_error > 0.05) {
+        aim_v = 50;
+    }*/
+
     // rampa
     // výpočet odchýlky od vzorky akou ide rampa
     double diffV = aim_v - forwardspeed;
@@ -189,6 +234,8 @@ void robot::uloha_1(const TKobukiData &robotdata){
         rotationspeed = aim_w;
     }
 
+    fi_prev = fi_now;
+
     Pose p;
     p.x = x;
     p.y = y;
@@ -211,56 +258,61 @@ double interpolate(double p0, double p1, double p2, double p3, double t) {
 
 void robot::uloha_3(const std::vector<LaserData>& laserData)
 {
+    if (!mappingEnabled || poseHistory.empty()) return;
+
     if (poseHistory.empty()) return;
 
-    for (int i = 0; i < (int)laserData.size(); i++)
-    {
-        float dist_Li = laserData.at(i).scanDistance / 1000.0f;
-        if (dist_Li < 0.2f || dist_Li > 3.5f) continue;
-        if (dist_Li < 0.7 && dist_Li > 0.6) continue;
 
-        uint32_t scanTime = laserData.at(i).timestamp;
-        float xk, yk, fik;
-        bool found = false;
-        int idx = 1;
+    if (mappingEnabled) {
+        for (int i = 0; i < (int)laserData.size(); i++)
+        {
+            float dist_Li = laserData.at(i).scanDistance / 1000.0f;
+            if (dist_Li < 0.2f || dist_Li > 3.5f) continue;
+            if (dist_Li < 0.7 && dist_Li > 0.6) continue;
 
-        if (poseHistory.size() >= 4) {
-            for (idx = 1; idx < (int)poseHistory.size() - 2; idx++) {
-                if (poseHistory[idx+1].timestamp > scanTime) {
-                    found = true;
-                    break;
+            uint32_t scanTime = laserData.at(i).timestamp;
+            float xk, yk, fik;
+            bool found = false;
+            int idx = 1;
+
+            if (poseHistory.size() >= 4) {
+                for (idx = 1; idx < (int)poseHistory.size() - 2; idx++) {
+                    if (poseHistory[idx+1].timestamp > scanTime) {
+                        found = true;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (found) {
-            double t = (double)(scanTime - poseHistory[idx].timestamp) /
-                       (double)(poseHistory[idx+1].timestamp - poseHistory[idx].timestamp);
+            if (found) {
+                double t = (double)(scanTime - poseHistory[idx].timestamp) /
+                           (double)(poseHistory[idx+1].timestamp - poseHistory[idx].timestamp);
 
-            xk = interpolate(poseHistory[idx-1].x, poseHistory[idx].x, poseHistory[idx+1].x, poseHistory[idx+2].x, t);
-            yk = interpolate(poseHistory[idx-1].y, poseHistory[idx].y, poseHistory[idx+1].y, poseHistory[idx+2].y, t);
+                xk = interpolate(poseHistory[idx-1].x, poseHistory[idx].x, poseHistory[idx+1].x, poseHistory[idx+2].x, t);
+                yk = interpolate(poseHistory[idx-1].y, poseHistory[idx].y, poseHistory[idx+1].y, poseHistory[idx+2].y, t);
 
-            float diff = poseHistory[idx+1].fi - poseHistory[idx].fi;
-            while (diff > M_PI) diff -= 2 * M_PI;
-            while (diff < -M_PI) diff += 2 * M_PI;
-            fik = poseHistory[idx].fi + t * diff;
-        } else {
-            xk = poseHistory.back().x;
-            yk = poseHistory.back().y;
-            fik = poseHistory.back().fi;
-        }
+                float diff = poseHistory[idx+1].fi - poseHistory[idx].fi;
+                while (diff > M_PI) diff -= 2 * M_PI;
+                while (diff < -M_PI) diff += 2 * M_PI;
+                fik = poseHistory[idx].fi + t * diff;
+            } else {
+                xk = poseHistory.back().x;
+                yk = poseHistory.back().y;
+                fik = poseHistory.back().fi;
+            }
 
-        float angle_rad = (laserData.at(i).scanAngle / 360.0) * (2 * M_PI);
+            float angle_rad = (laserData.at(i).scanAngle / 360.0) * (2 * M_PI);
 
-        float tx = xk + dist_Li * std::cos(fik - angle_rad);
-        float ty = yk + dist_Li * std::sin(fik - angle_rad);
+            float tx = xk + dist_Li * std::cos(fik - angle_rad);
+            float ty = yk + dist_Li * std::sin(fik - angle_rad);
 
-        int gridi = std::floor(tx / 0.05) + 140;
-        int gridj = std::floor(ty / 0.05) + 140;
+            int gridi = std::floor(tx / 0.05) + 140;
+            int gridj = std::floor(ty / 0.05) + 140;
 
-        if (gridi >= 0 && gridi < 280 && gridj >= 0 && gridj < 280) {
-            if(map_temp[gridi][gridj] < 15) map_temp[gridi][gridj]++;
-            if(map_temp[gridi][gridj] > 8) map[gridi][gridj] = 1;
+            if (gridi >= 0 && gridi < 280 && gridj >= 0 && gridj < 280) {
+                if(map_temp[gridi][gridj] < 15) map_temp[gridi][gridj]++;
+                if(map_temp[gridi][gridj] > 8) map[gridi][gridj] = 1;
+            }
         }
     }
 
@@ -284,11 +336,43 @@ void robot::uloha_3(const std::vector<LaserData>& laserData)
     // }
 
     vykresliMapu();
+
+
+    if (DONE_MApping && !mappingFinishedTriggered) {
+        exportMapToCSV("final_mapa.csv");
+        mappingFinishedTriggered = true; // Zabezpečí, že sa to spustí iba raz
+    }
+
+}
+
+void robot::exportMapToCSV(const std::string& filename)
+{
+    std::ofstream file(filename);
+
+    if (file.is_open())
+    {
+        for (int j = 279; j >= 0; j--)
+        {
+            for (int i = 0; i < 280; i++)
+            {
+                file << (int)map[i][j];
+                if (i < 279) file << ",";
+            }
+            file << "\n";
+        }
+        file.close();
+        std::cout << "Mapa bola uspesne exportovana do: " << filename << std::endl;
+    }
+    else {
+        std::cerr << "Nepodarilo sa otvorit subor na zapis" << std::endl;
+    }
 }
 
 void robot::vykresliMapu() {
     QImage obr(280, 280, QImage::Format_RGB32);
     obr.fill(Qt::white);
+
+    // 1. Vykreslenie prekážok (Steny - Čierna)
     for(int i=0; i<280; i++) {
         for(int j=0; j<280; j++) {
             if(map[i][j] == 1) {
@@ -296,8 +380,615 @@ void robot::vykresliMapu() {
             }
         }
     }
+
+    // 2. Vykreslenie ČASTÍC (Monte Carlo - Modrá)
+    for (const auto& p : particles) {
+        int pi = std::floor(p.x / 0.05) + 140;
+        int pj = std::floor(p.y / 0.05) + 140;
+
+        if (pi >= 0 && pi < 280 && pj >= 0 && pj < 280) {
+            // Vykreslíme časticu ako jeden modrý pixel
+            obr.setPixel(pi, 279 - pj, qRgb(0, 0, 255));
+        }
+    }
+
+    // 3. Vykreslenie ODHADOVANEJ POLOHY (Zelený krížik)
+    // Tieto hodnoty si vypočítal na konci funkcie uloha_5
+    int ex = std::floor(estimatedX / 0.05) + 140;
+    int ey = std::floor(estimatedY / 0.05) + 140;
+
+    if (ex >= 0 && ex < 280 && ey >= 0 && ey < 280) {
+        for(int dx = -1; dx <= 1; dx++) {
+            for(int dy = -1; dy <= 1; dy++) {
+                int px = ex + dx;
+                int py = 279 - (ey + dy);
+                if(px >= 0 && px < 280 && py >= 0 && py < 280)
+                    obr.setPixel(px, py, qRgb(0, 255, 0));
+            }
+        }
+    }
+
+    // 4. Vykreslenie CIELA (Pôvodný kód - Červená)
+    int gi = std::floor(goalXGlobal / 0.05) + 140;
+    int gj = std::floor(goalYGlobal / 0.05) + 140;
+
+    if (gi >= 0 && gi < 280 && gj >= 0 && gj < 280) {
+        for(int x_off = -1; x_off <= 1; x_off++) {
+            for(int y_off = -1; y_off <= 1; y_off++) {
+                int px = gi + x_off;
+                int py = 279 - (gj + y_off);
+                if(px >= 0 && px < 280 && py >= 0 && py < 280)
+                    obr.setPixel(px, py, qRgb(255, 0, 0));
+            }
+        }
+    }
+
     emit publishMap(obr);
 }
+
+void robot::importMapFromCSV(const std::string& filename)
+{
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Nepodarilo sa otvorit subor mapy na citanie: " << filename << std::endl;
+        return;
+    }
+
+    // Vyčistíme aktuálnu mapu pred načítaním
+    for(int i=0; i<280; i++) {
+        for(int j=0; j<280; j++) {
+            map[i][j] = 0;
+            map_temp[i][j] = 0;
+        }
+    }
+
+    std::string line;
+    int j = 279; // Začíname od horného riadku (tak ako si to exportoval)
+
+    while (std::getline(file, line) && j >= 0) {
+        std::stringstream ss(line);
+        std::string cell;
+        int i = 0;
+
+        while (std::getline(ss, cell, ',') && i < 280) {
+            map[i][j] = std::stoi(cell);
+            i++;
+        }
+        j--;
+    }
+
+    file.close();
+    std::cout << "Mapa bola nacitana z: " << filename << std::endl;
+
+    vykresliMapu();
+}
+
+void robot::uloha_4() {
+
+    // 1. VYPOCET FLOOD FILL
+    if (!cesta_vypocitana) {
+
+        for(int i=0; i<280; i++) for(int j=0; j<280; j++) map_4[i][j] = 0;
+
+        // zhruby stenu o 4 bloky
+
+        int n = 4;
+        for(int i=0; i<280; i++) {
+            for(int j=0; j<280; j++) {
+                if(map[i][j] == 1) {
+                    for(int xx = -n; xx <= n; xx++) {
+                        for(int yy = -n; yy <= n; yy++) {
+                            int ni = i + xx;
+                            int nj = j + yy;
+                            if(ni>=0 && ni<280 && nj>=0 && nj<280) map_4[ni][nj] = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        int robot_i = std::floor(x / 0.05) + 140;
+        int robot_j = std::floor(y / 0.05) + 140;
+        int target_i = std::floor(goalXGlobal / 0.05) + 140;
+        int target_j = std::floor(goalYGlobal / 0.05) + 140;
+
+        if (target_i < 0 || target_i >= 280 || target_j < 0 || target_j >= 280 ||
+            robot_i < 0 || robot_i >= 280 || robot_j < 0 || robot_j >= 280) {
+            std::cout << "Robot alebo ciel su mimo mapy" << std::endl;
+            return;
+        }
+
+        for(int i = 0; i < 280; i++) {
+            for(int j = 0; j < 280; j++) {
+                if(map_4[i][j] == 1) map_nav[i][j] = 255;
+                else map_nav[i][j] = 0;
+            }
+        }
+
+        if(map_nav[target_i][target_j] != 255) {
+            map_nav[target_i][target_j] = 2;
+        } else {
+            std::cout << "Ciel je v prekazke" << std::endl;
+            return;
+        }
+
+        // WAVE SPREAD
+
+        int aktualna_vlna = 2;
+        bool zmena = true;
+        bool cesta_najdena = false;
+
+        while (zmena && !cesta_najdena) {
+            zmena = false;
+            for (int i = 0; i < 280; i++) {
+                for (int j = 0; j < 280; j++) {
+                    if (map_nav[i][j] == aktualna_vlna) {
+                        int di[] = {0, 0, 1, -1};
+                        int dj[] = {1, -1, 0, 0};
+                        for (int k = 0; k < 4; k++) {
+                            int ni = i + di[k];
+                            int nj = j + dj[k];
+                            if (ni >= 0 && ni < 280 && nj >= 0 && nj < 280) {
+                                if (map_nav[ni][nj] == 0) {
+                                    map_nav[ni][nj] = aktualna_vlna + 1;
+                                    zmena = true;
+                                    if (ni == robot_i && nj == robot_j) cesta_najdena = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            aktualna_vlna++;
+            if (aktualna_vlna >= 254) break;
+        }
+
+        // 3. EXTRAKCIA CELEJ CESTY DO VEKTORA
+        if (cesta_najdena) {
+            std::cout << "Cesta najdena, ukladam body!" << std::endl;
+            planovana_cesta.clear();
+
+            int curr_i = robot_i;
+            int curr_j = robot_j;
+
+            while(map_nav[curr_i][curr_j] > 2) {
+                int n_val = map_nav[curr_i][curr_j];
+                int next_i = curr_i, next_j = curr_j;
+                int di[] = {0, 0, 1, -1, 1, 1, -1, -1};
+                int dj[] = {1, -1, 0, 0, 1, -1, 1, -1};
+
+                for(int k=0; k<8; k++) {
+                    int ni = curr_i + di[k];
+                    int nj = curr_j + dj[k];
+                    if(ni>=0 && ni<280 && nj>=0 && nj<280) {
+                        if(map_nav[ni][nj] > 1 && map_nav[ni][nj] < n_val) {
+                            n_val = map_nav[ni][nj];
+                            next_i = ni;
+                            next_j = nj;
+
+                        }
+                    }
+                }
+                curr_i = next_i;
+                curr_j = next_j;
+
+                double wayX = (curr_i - 140) * 0.05;
+                double wayY = (curr_j - 140) * 0.05;
+
+                planovana_cesta.push_back({wayX, wayY});
+            }
+
+            if (planovana_cesta.size() > 2) {
+                std::vector<std::pair<double, double>> zjednodusena_cesta;
+
+                zjednodusena_cesta.push_back(planovana_cesta[0]);
+
+                for (size_t k = 1; k < planovana_cesta.size() - 1; k++) {
+                    // x1, y1 last bod
+                    double x1 = zjednodusena_cesta.back().first;
+                    double y1 = zjednodusena_cesta.back().second;
+
+                    // x2, y2 atm bod
+                    double x2 = planovana_cesta[k].first;
+                    double y2 = planovana_cesta[k].second;
+
+                    // x3, y3 future bod
+                    double x3 = planovana_cesta[k+1].first;
+                    double y3 = planovana_cesta[k+1].second;
+
+                    double plocha = (x2 - x1) * (y3 - y2) - (y2 - y1) * (x3 - x2);
+
+                    // ak nie je 0 tak je tam zakruta
+                    if (std::abs(plocha) > 1e-4) {
+                        zjednodusena_cesta.push_back(planovana_cesta[k]);
+                    }
+                }
+
+                // final point
+                zjednodusena_cesta.push_back(planovana_cesta.back());
+
+                // Prepiseme staru za novu
+                planovana_cesta = zjednodusena_cesta;
+
+                std::cout << "Cesta zjednodusena na " << planovana_cesta.size() << " bodov (zakrut)." << std::endl;
+            }
+
+            cesta_vypocitana = true;
+        } else {
+            std::cout << "Cestu do ciela sa nepodarilo najst!" << std::endl;
+            cesta_vypocitana = true;
+        }
+    }
+
+    //NAVIGACIA (nonstop)
+
+    if (cesta_vypocitana && !planovana_cesta.empty()) {
+
+        double aktualny_ciel_X = planovana_cesta.front().first;
+        double aktualny_ciel_Y = planovana_cesta.front().second;
+
+        this->goalX = aktualny_ciel_X;
+        this->goalY = aktualny_ciel_Y;
+
+        double vzdialenost = std::hypot(aktualny_ciel_X - x, aktualny_ciel_Y - y);
+
+        if (vzdialenost < 0.10) {
+            planovana_cesta.erase(planovana_cesta.begin());
+
+            if (planovana_cesta.empty()) {
+                std::cout << "finish ciel" << std::endl;
+                cesta_vypocitana = false;
+            }
+        }
+    }
+}
+
+void robot::EnlargeMap() {
+
+    for(int i = 0; i < 280; i++) {
+        for(int j = 0; j < 280; j++) {
+            map_4[i][j] = 0;
+        }
+    }
+
+    int n = 3;
+
+    for(int i = 0; i < 280; i++) {
+        for(int j = 0; j < 280; j++) {
+            if(map[i][j] == 1) {
+                for(int x_off = -n; x_off <= n; x_off++) {
+                    for(int y_off = -n; y_off <= n; y_off++) {
+                        int ni = i + x_off;
+                        int nj = j + y_off;
+
+                        if(ni >= 0 && ni < 280 && nj >= 0 && nj < 280) {
+                            map_4[ni][nj] = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    std::cout << "finish" << std::endl;
+}
+
+
+void robot::uloha_5(const std::vector<LaserData>& laserData)
+{
+    // =========================================================
+    // 1. INITIALIZÁCIA PARTICLES
+    // =========================================================
+
+    if (particles.empty()) {
+
+        static std::random_device rd;
+        static std::default_random_engine gen(rd());
+
+        std::uniform_real_distribution<double> distPos(-7.0, 7.0);
+        std::uniform_real_distribution<double> distAngle(-M_PI, M_PI);
+
+        for (int i = 0; i < numParticles; ++i) {
+
+            Particle p;
+
+            p.x = distPos(gen);
+            p.y = distPos(gen);
+            p.fi = distAngle(gen);
+            p.weight = 1.0 / numParticles;
+
+            particles.push_back(p);
+        }
+    }
+
+    // =========================================================
+    // 2. VÝPOČET VÁH
+    // =========================================================
+
+    double totalWeight = 0.0;
+
+    // Väčší sigma -> stabilnejší filter
+    const double sigma = 0.05;
+
+    const double var = sigma * sigma;
+
+    for (auto& p : particles) {
+
+        // DÔLEŽITÉ:
+        // už nepoužívame násobenie likelihoodov
+        p.weight = 0.0;
+
+        // viac laser lúčov
+        for (int i = 0; i < (int)laserData.size(); i += 5) {
+
+            double measured =
+                laserData[i].scanDistance / 1000.0;
+
+            double angle_rad =
+                laserData[i].scanAngle * M_PI / 180.0;
+
+            double expected =
+                expectedRangeFromMapBresenham(
+                    p.x,
+                    p.y,
+                    p.fi + angle_rad,
+                    3.5
+                    );
+
+            double diff = measured - expected;
+
+            // Gaussian likelihood
+            double likelihood =
+                std::exp(
+                    -0.5 * (diff * diff) / var
+                    );
+
+            // SUM namiesto MULTIPLY
+            p.weight += likelihood;
+        }
+
+        totalWeight += p.weight;
+    }
+
+    // =========================================================
+    // 3. NORMALIZÁCIA
+    // =========================================================
+
+    if (totalWeight < 1e-12)
+        totalWeight = 1e-12;
+
+    for (auto& p : particles) {
+
+        p.weight /= totalWeight;
+    }
+
+    // =========================================================
+    // 4. ODHAD POLOHY
+    // =========================================================
+
+    double max_weight = -1.0;
+
+    Particle best_particle = particles[0];
+
+    for (const auto& p : particles) {
+
+        if (p.weight > max_weight) {
+
+            max_weight = p.weight;
+            best_particle = p;
+        }
+    }
+
+    // Vyhladenie
+    double alpha = 0.2;
+
+    estimatedX =
+        alpha * best_particle.x +
+        (1.0 - alpha) * estimatedX;
+
+    estimatedY =
+        alpha * best_particle.y +
+        (1.0 - alpha) * estimatedY;
+
+    estimatedFi = best_particle.fi;
+
+    // =========================================================
+    // 5. EFFECTIVE SAMPLE SIZE
+    // =========================================================
+
+    double neff = 0.0;
+
+    for (const auto& p : particles) {
+
+        neff += p.weight * p.weight;
+    }
+
+    neff = 1.0 / neff;
+
+    // =========================================================
+    // 6. RESAMPLING
+    // =========================================================
+
+    // Resamplujeme iba ak treba
+    if (neff < numParticles * 0.5) {
+
+        std::vector<Particle> newParticles;
+
+        newParticles.reserve(numParticles);
+
+        static std::default_random_engine gen_resample;
+
+        std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+        // MALÝ JITTER
+        std::normal_distribution<double> jitter_pos(0.0, 0.001);
+        std::normal_distribution<double> jitter_ang(0.0, 0.002);
+
+        for (int i = 0; i < numParticles; ++i) {
+
+            double r = dist(gen_resample);
+
+            double cumulativeWeight = 0.0;
+
+            for (const auto& p : particles) {
+
+                cumulativeWeight += p.weight;
+
+                if (r <= cumulativeWeight) {
+
+                    Particle np = p;
+
+                    // malý rozptyl
+                    np.x += jitter_pos(gen_resample);
+                    np.y += jitter_pos(gen_resample);
+                    np.fi += jitter_ang(gen_resample);
+
+                    // normalizácia uhla
+                    while (np.fi > M_PI)
+                        np.fi -= 2.0 * M_PI;
+
+                    while (np.fi < -M_PI)
+                        np.fi += 2.0 * M_PI;
+
+                    np.weight = 1.0 / numParticles;
+
+                    newParticles.push_back(np);
+
+                    break;
+                }
+            }
+        }
+
+        // ochrana
+        while (newParticles.size() < numParticles) {
+
+            newParticles.push_back(
+                particles.back()
+                );
+        }
+
+        particles = std::move(newParticles);
+    }
+
+    // =========================================================
+    // 7. VIZUALIZÁCIA
+    // =========================================================
+
+    std::vector<std::pair<int,int>> particleCells;
+
+    for (const auto& p : particles) {
+
+        int pi = std::floor(p.x / 0.05) + 140;
+        int pj = std::floor(p.y / 0.05) + 140;
+
+        if (pi >= 0 && pi < 280 &&
+            pj >= 0 && pj < 280) {
+
+            if (map[pi][pj] == 0) {
+
+                map[pi][pj] = 2;
+
+                particleCells.push_back({pi, pj});
+            }
+        }
+    }
+
+    vykresliMapu();
+
+    // vyčistenie mapy
+    for (auto const& cell : particleCells) {
+
+        map[cell.first][cell.second] = 0;
+    }
+}
+
+void robot::uloha_5_pohyb(double length, double delta_fi)
+{
+    if (particles.empty()) return;
+
+    static std::random_device rd;
+    static std::default_random_engine gen(rd());
+
+    // MENŠÍ ALE NIE NULOVÝ ŠUM
+    double trans_sigma =
+        0.01 + std::abs(length) * 0.03;
+
+    double rot_sigma =
+        0.01 + std::abs(delta_fi) * 0.03;
+
+    std::normal_distribution<double>
+        noise_length(0.0, trans_sigma);
+
+    std::normal_distribution<double>
+        noise_angle(0.0, rot_sigma);
+
+    for (auto& p : particles) {
+
+        double noisy_length =
+            length + noise_length(gen);
+
+        double noisy_delta_fi =
+            delta_fi + noise_angle(gen);
+
+        // najprv rotácia
+        p.fi += noisy_delta_fi;
+
+        while (p.fi > M_PI)
+            p.fi -= 2.0 * M_PI;
+
+        while (p.fi < -M_PI)
+            p.fi += 2.0 * M_PI;
+
+        // potom translácia
+        p.x -= noisy_length * std::cos(p.fi);
+        p.y -= noisy_length * std::sin(p.fi);
+    }
+}
+
+
+double robot::expectedRangeFromMapBresenham(double x, double y, double angle, double maxRange)
+{
+    // koncový bod lúča
+    double endX = x + maxRange * std::cos(angle);
+    double endY = y + maxRange * std::sin(angle);
+
+    int x0 = std::floor(x / cellSize) + originI;
+    int y0 = std::floor(y / cellSize) + originJ;
+    int x1 = std::floor(endX / cellSize) + originI;
+    int y1 = std::floor(endY / cellSize) + originJ;
+
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    int xcur = x0;
+    int ycur = y0;
+
+    while (true) {
+        // mimo mapy
+        if (xcur < 0 || xcur >= mapWidth || ycur < 0 || ycur >= mapHeight)
+            break;
+
+        // narazil na stenu
+        if (map[xcur][ycur] == 1) {
+            double wx = (xcur - originI) * cellSize;
+            double wy = (ycur - originJ) * cellSize;
+            return std::sqrt((wx - x)*(wx - x) + (wy - y)*(wy - y));
+        }
+
+        if (xcur == x1 && ycur == y1)
+            break;
+
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; xcur += sx; }
+        if (e2 <  dx) { err += dx; ycur += sy; }
+    }
+
+    return maxRange;
+}
+
+
 
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
@@ -306,8 +997,6 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
 
     uloha_1(robotdata);
-
-
 
 
 
@@ -358,16 +1047,23 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
 
-
-
     uloha_3(copyOfLaserData);
 
     copyOfLaserData=laserData;
 
+    uloha_5(laserData);
+
+
+
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
    // updateLaserPicture=1;
-    processNavigation(laserData);
+    if (rezim_navigacie == 1) {
+        processNavigation(laserData); // Úloha 2
+    }
+    else if (rezim_navigacie == 2) {
+        uloha_4(); // Úloha 4
+    }
 
 
     emit publishLidar(copyOfLaserData, bHistogramVFH);
@@ -452,7 +1148,7 @@ int robot::processNavigation(const std::vector<LaserData> &xlaserData){
         this->goalX = this->candidatesX.at(k);
         this->goalY = this->candidatesY.at(k);
     }
-
+*/
     return 0;
 }
 

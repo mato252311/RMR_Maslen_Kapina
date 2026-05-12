@@ -3,6 +3,8 @@
 #include "librobot/librobot.h"
 #include <QObject>
 #include <QWidget>
+#include <vector>
+#include <utility>
 
 #ifndef DISABLE_OPENCV
 #include "opencv2/core/utility.hpp"
@@ -35,6 +37,30 @@ public:
 
   void initAndStartRobot(std::string ipaddress);
 
+  bool DONE_MApping = false;
+  void exportMapToCSV(const std::string& filename);
+  bool mappingFinishedTriggered = false;
+
+
+  double expectedRangeFromDistanceField(double x, double y, double angle, double maxRange);
+  double expectedRangeFromMapBresenham(double x, double y, double angle, double maxRange);
+
+  void importMapFromCSV(const std::string& filename);
+  int rezim_navigacie = 1;
+  bool mappingEnabled = false;
+
+  void EnlargeMap();
+
+  struct Particle {
+      double x, y, fi;
+      double weight;
+  };
+  int numParticles = 500;
+  double estimatedX = 0;
+  double estimatedY = 0;
+  double estimatedFi = 0;
+  std::vector<Particle> particles;
+
 
   // tato funkcia len nastavuje hodnoty.. posielaju sa v callbacku(dobre, kvoli
   // asynchronnosti a zabezpeceniu,ze sa poslu len raz pri viacero prepisoch
@@ -42,6 +68,8 @@ public:
   void setSpeedVal(double forw, double rots);
   // tato funkcia fyzicky posiela hodnoty do robota
   void setSpeed(double forw, double rots);
+
+  void setLocation(double robotsetX, double robotsetY, double robotsetfi);
 
   void setGoal(double goalX, double goalY);
   int getGoalX();
@@ -77,6 +105,7 @@ private:
   bool isFirstRun = true;                          //1st run
   double fi_prev;                           //predchadzajuce
   double fi_now;
+  double fi_offset;
   unsigned short prevEncoderLeft = 0;       //predchadzajuce
   unsigned short prevEncoderRight = 0;      //predchadzajuce
   const long double tickToMeter = 0.000085292090497737556558;
@@ -89,9 +118,17 @@ private:
   double w_max = 0.5;
 
   // uloha_3
-  int map_temp[280][280] = {0};
-  int map[280][280] = {0};
+
+
+
+  uint8_t map_temp[280][280] = {0};
+  uint8_t map[280][280] = {0};
   int mapRC = 0;
+
+  uint8_t map_4[284][284] = {0};
+  uint8_t map_nav[284][284] = {0};
+  std::vector<std::pair<double, double>> planovana_cesta;
+  bool cesta_vypocitana = false;
 
 
   float cellSize = 0.05f;
@@ -145,6 +182,26 @@ private:
   void uloha_3(const std::vector<LaserData> &laserData);
   void vykresliMapu();
   //uloha_3
+
+  //uloha_4
+
+  void uloha_4();
+
+  //uloha_4
+
+  //uloha_5
+  const int maxRange = 3;
+  const int mapWidth = 280;
+  const int mapHeight = 280;
+  const int originI = mapWidth / 2;  // 140
+  const int originJ = mapHeight / 2; // 140
+
+
+
+  void uloha_5(const std::vector<LaserData> &laserData);
+  void uloha_5_pohyb(double length, double delta_fi);
+
+  //uloha_5
 
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);
