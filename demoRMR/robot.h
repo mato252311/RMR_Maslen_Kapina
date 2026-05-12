@@ -42,11 +42,24 @@ public:
   bool mappingFinishedTriggered = false;
 
 
+  double expectedRangeFromDistanceField(double x, double y, double angle, double maxRange);
+  double expectedRangeFromMapBresenham(double x, double y, double angle, double maxRange);
+
   void importMapFromCSV(const std::string& filename);
   int rezim_navigacie = 1;
   bool mappingEnabled = false;
 
   void EnlargeMap();
+
+  struct Particle {
+      double x, y, fi;
+      double weight;
+  };
+  int numParticles = 500;
+  double estimatedX = 0;
+  double estimatedY = 0;
+  double estimatedFi = 0;
+  std::vector<Particle> particles;
 
 
   // tato funkcia len nastavuje hodnoty.. posielaju sa v callbacku(dobre, kvoli
@@ -89,6 +102,7 @@ private:
   bool isFirstRun;                          //1st run
   double fi_prev;                           //predchadzajuce
   double fi_now;
+  double fi_offset;
   unsigned short prevEncoderLeft = 0;       //predchadzajuce
   unsigned short prevEncoderRight = 0;      //predchadzajuce
   const long double tickToMeter = 0.000085292090497737556558;
@@ -162,6 +176,20 @@ private:
   void uloha_4();
 
   //uloha_4
+
+  //uloha_5
+  const int maxRange = 3;
+  const int mapWidth = 280;
+  const int mapHeight = 280;
+  const int originI = mapWidth / 2;  // 140
+  const int originJ = mapHeight / 2; // 140
+
+
+
+  void uloha_5(const std::vector<LaserData> &laserData);
+  void uloha_5_pohyb(double length, double delta_fi);
+
+  //uloha_5
 
   int processThisLidar(const std::vector<LaserData> &laserData);
   int processThisRobot(const TKobukiData &robotdata);

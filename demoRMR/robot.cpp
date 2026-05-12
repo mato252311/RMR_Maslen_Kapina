@@ -84,16 +84,42 @@ void robot::uloha_1(const TKobukiData &robotdata){
         prevEncoderLeft = robotdata.EncoderLeft;
         prevEncoderRight = robotdata.EncoderRight;
         isFirstRun = false;
-        fi_prev = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+        fi_offset = ((robotdata.GyroAngle / 100.0) / 360.0)
+            * (2 * M_PI);
+
+        fi_prev = 0;
+        fi = 0;
         return;
     }
 
     // vypočet natočenia ???
-    fi_now = ((robotdata.GyroAngle/ 100.0)/360.0)*(2*M_PI);
+    double gyro_angle =
+        ((robotdata.GyroAngle / 100.0) / 360.0)
+        * (2 * M_PI);
 
-    fi = fi_now - fi_prev;
-    while (fi > M_PI) fi -= 2 * M_PI;
-    while (fi < -M_PI) fi += 2 * M_PI;
+    // absolútny heading od štartu
+    fi_now = gyro_angle - fi_offset;
+
+    // normalizácia
+    while (fi_now > M_PI)
+        fi_now -= 2 * M_PI;
+
+    while (fi_now < -M_PI)
+        fi_now += 2 * M_PI;
+
+    // zmena uhla
+    double delta_fi = fi_now - fi_prev;
+
+    while (delta_fi > M_PI)
+        delta_fi -= 2 * M_PI;
+
+    while (delta_fi < -M_PI)
+        delta_fi += 2 * M_PI;
+
+    // ABSOLÚTNY uhol robota
+    fi = fi_now;
+
+
     // rozdiel v každej vzorke
     short deltaLeft = (short)(robotdata.EncoderLeft - prevEncoderLeft);
     short deltaRight = (short)(robotdata.EncoderRight - prevEncoderRight);
@@ -103,6 +129,11 @@ void robot::uloha_1(const TKobukiData &robotdata){
 
 
     double length = (lengthLeft + lengthRight) / 2.0;
+
+
+    uloha_5_pohyb(length, delta_fi);
+
+
     x += length * std::cos(fi);
     y += length * std::sin(fi);
 
@@ -200,6 +231,8 @@ void robot::uloha_1(const TKobukiData &robotdata){
     } else {
         rotationspeed = aim_w;
     }
+
+    fi_prev = fi_now;
 
     Pose p;
     p.x = x;
@@ -337,6 +370,8 @@ void robot::exportMapToCSV(const std::string& filename)
 void robot::vykresliMapu() {
     QImage obr(280, 280, QImage::Format_RGB32);
     obr.fill(Qt::white);
+
+    // 1. Vykreslenie prekážok (Steny - Čierna)
     for(int i=0; i<280; i++) {
         for(int j=0; j<280; j++) {
             if(map[i][j] == 1) {
@@ -345,8 +380,34 @@ void robot::vykresliMapu() {
         }
     }
 
+    // 2. Vykreslenie ČASTÍC (Monte Carlo - Modrá)
+    for (const auto& p : particles) {
+        int pi = std::floor(p.x / 0.05) + 140;
+        int pj = std::floor(p.y / 0.05) + 140;
 
-    //vykreslenia ciela uloha 4
+        if (pi >= 0 && pi < 280 && pj >= 0 && pj < 280) {
+            // Vykreslíme časticu ako jeden modrý pixel
+            obr.setPixel(pi, 279 - pj, qRgb(0, 0, 255));
+        }
+    }
+
+    // 3. Vykreslenie ODHADOVANEJ POLOHY (Zelený krížik)
+    // Tieto hodnoty si vypočítal na konci funkcie uloha_5
+    int ex = std::floor(estimatedX / 0.05) + 140;
+    int ey = std::floor(estimatedY / 0.05) + 140;
+
+    if (ex >= 0 && ex < 280 && ey >= 0 && ey < 280) {
+        for(int dx = -1; dx <= 1; dx++) {
+            for(int dy = -1; dy <= 1; dy++) {
+                int px = ex + dx;
+                int py = 279 - (ey + dy);
+                if(px >= 0 && px < 280 && py >= 0 && py < 280)
+                    obr.setPixel(px, py, qRgb(0, 255, 0));
+            }
+        }
+    }
+
+    // 4. Vykreslenie CIELA (Pôvodný kód - Červená)
     int gi = std::floor(goalXGlobal / 0.05) + 140;
     int gj = std::floor(goalYGlobal / 0.05) + 140;
 
@@ -360,6 +421,7 @@ void robot::vykresliMapu() {
             }
         }
     }
+
     emit publishMap(obr);
 }
 
@@ -395,9 +457,8 @@ void robot::importMapFromCSV(const std::string& filename)
     }
 
     file.close();
-    std::cout << "Mapa bola uspesne nacitana z: " << filename << std::endl;
+    std::cout << "Mapa bola nacitana z: " << filename << std::endl;
 
-    // Okamžite prekreslíme UI, aby sme videli načítanú mapu
     vykresliMapu();
 }
 
@@ -610,6 +671,324 @@ void robot::EnlargeMap() {
     std::cout << "finish" << std::endl;
 }
 
+
+void robot::uloha_5(const std::vector<LaserData>& laserData)
+{
+    // =========================================================
+    // 1. INITIALIZÁCIA PARTICLES
+    // =========================================================
+
+    if (particles.empty()) {
+
+        static std::random_device rd;
+        static std::default_random_engine gen(rd());
+
+        std::uniform_real_distribution<double> distPos(-7.0, 7.0);
+        std::uniform_real_distribution<double> distAngle(-M_PI, M_PI);
+
+        for (int i = 0; i < numParticles; ++i) {
+
+            Particle p;
+
+            p.x = distPos(gen);
+            p.y = distPos(gen);
+            p.fi = distAngle(gen);
+            p.weight = 1.0 / numParticles;
+
+            particles.push_back(p);
+        }
+    }
+
+    // =========================================================
+    // 2. VÝPOČET VÁH
+    // =========================================================
+
+    double totalWeight = 0.0;
+
+    // Väčší sigma -> stabilnejší filter
+    const double sigma = 0.05;
+
+    const double var = sigma * sigma;
+
+    for (auto& p : particles) {
+
+        // DÔLEŽITÉ:
+        // už nepoužívame násobenie likelihoodov
+        p.weight = 0.0;
+
+        // viac laser lúčov
+        for (int i = 0; i < (int)laserData.size(); i += 5) {
+
+            double measured =
+                laserData[i].scanDistance / 1000.0;
+
+            double angle_rad =
+                laserData[i].scanAngle * M_PI / 180.0;
+
+            double expected =
+                expectedRangeFromMapBresenham(
+                    p.x,
+                    p.y,
+                    p.fi + angle_rad,
+                    3.5
+                    );
+
+            double diff = measured - expected;
+
+            // Gaussian likelihood
+            double likelihood =
+                std::exp(
+                    -0.5 * (diff * diff) / var
+                    );
+
+            // SUM namiesto MULTIPLY
+            p.weight += likelihood;
+        }
+
+        totalWeight += p.weight;
+    }
+
+    // =========================================================
+    // 3. NORMALIZÁCIA
+    // =========================================================
+
+    if (totalWeight < 1e-12)
+        totalWeight = 1e-12;
+
+    for (auto& p : particles) {
+
+        p.weight /= totalWeight;
+    }
+
+    // =========================================================
+    // 4. ODHAD POLOHY
+    // =========================================================
+
+    double max_weight = -1.0;
+
+    Particle best_particle = particles[0];
+
+    for (const auto& p : particles) {
+
+        if (p.weight > max_weight) {
+
+            max_weight = p.weight;
+            best_particle = p;
+        }
+    }
+
+    // Vyhladenie
+    double alpha = 0.2;
+
+    estimatedX =
+        alpha * best_particle.x +
+        (1.0 - alpha) * estimatedX;
+
+    estimatedY =
+        alpha * best_particle.y +
+        (1.0 - alpha) * estimatedY;
+
+    estimatedFi = best_particle.fi;
+
+    // =========================================================
+    // 5. EFFECTIVE SAMPLE SIZE
+    // =========================================================
+
+    double neff = 0.0;
+
+    for (const auto& p : particles) {
+
+        neff += p.weight * p.weight;
+    }
+
+    neff = 1.0 / neff;
+
+    // =========================================================
+    // 6. RESAMPLING
+    // =========================================================
+
+    // Resamplujeme iba ak treba
+    if (neff < numParticles * 0.5) {
+
+        std::vector<Particle> newParticles;
+
+        newParticles.reserve(numParticles);
+
+        static std::default_random_engine gen_resample;
+
+        std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+        // MALÝ JITTER
+        std::normal_distribution<double> jitter_pos(0.0, 0.001);
+        std::normal_distribution<double> jitter_ang(0.0, 0.002);
+
+        for (int i = 0; i < numParticles; ++i) {
+
+            double r = dist(gen_resample);
+
+            double cumulativeWeight = 0.0;
+
+            for (const auto& p : particles) {
+
+                cumulativeWeight += p.weight;
+
+                if (r <= cumulativeWeight) {
+
+                    Particle np = p;
+
+                    // malý rozptyl
+                    np.x += jitter_pos(gen_resample);
+                    np.y += jitter_pos(gen_resample);
+                    np.fi += jitter_ang(gen_resample);
+
+                    // normalizácia uhla
+                    while (np.fi > M_PI)
+                        np.fi -= 2.0 * M_PI;
+
+                    while (np.fi < -M_PI)
+                        np.fi += 2.0 * M_PI;
+
+                    np.weight = 1.0 / numParticles;
+
+                    newParticles.push_back(np);
+
+                    break;
+                }
+            }
+        }
+
+        // ochrana
+        while (newParticles.size() < numParticles) {
+
+            newParticles.push_back(
+                particles.back()
+                );
+        }
+
+        particles = std::move(newParticles);
+    }
+
+    // =========================================================
+    // 7. VIZUALIZÁCIA
+    // =========================================================
+
+    std::vector<std::pair<int,int>> particleCells;
+
+    for (const auto& p : particles) {
+
+        int pi = std::floor(p.x / 0.05) + 140;
+        int pj = std::floor(p.y / 0.05) + 140;
+
+        if (pi >= 0 && pi < 280 &&
+            pj >= 0 && pj < 280) {
+
+            if (map[pi][pj] == 0) {
+
+                map[pi][pj] = 2;
+
+                particleCells.push_back({pi, pj});
+            }
+        }
+    }
+
+    vykresliMapu();
+
+    // vyčistenie mapy
+    for (auto const& cell : particleCells) {
+
+        map[cell.first][cell.second] = 0;
+    }
+}
+
+void robot::uloha_5_pohyb(double length, double delta_fi)
+{
+    if (particles.empty()) return;
+
+    static std::random_device rd;
+    static std::default_random_engine gen(rd());
+
+    // MENŠÍ ALE NIE NULOVÝ ŠUM
+    double trans_sigma =
+        0.01 + std::abs(length) * 0.03;
+
+    double rot_sigma =
+        0.01 + std::abs(delta_fi) * 0.03;
+
+    std::normal_distribution<double>
+        noise_length(0.0, trans_sigma);
+
+    std::normal_distribution<double>
+        noise_angle(0.0, rot_sigma);
+
+    for (auto& p : particles) {
+
+        double noisy_length =
+            length + noise_length(gen);
+
+        double noisy_delta_fi =
+            delta_fi + noise_angle(gen);
+
+        // najprv rotácia
+        p.fi += noisy_delta_fi;
+
+        while (p.fi > M_PI)
+            p.fi -= 2.0 * M_PI;
+
+        while (p.fi < -M_PI)
+            p.fi += 2.0 * M_PI;
+
+        // potom translácia
+        p.x -= noisy_length * std::cos(p.fi);
+        p.y -= noisy_length * std::sin(p.fi);
+    }
+}
+
+
+double robot::expectedRangeFromMapBresenham(double x, double y, double angle, double maxRange)
+{
+    // koncový bod lúča
+    double endX = x + maxRange * std::cos(angle);
+    double endY = y + maxRange * std::sin(angle);
+
+    int x0 = std::floor(x / cellSize) + originI;
+    int y0 = std::floor(y / cellSize) + originJ;
+    int x1 = std::floor(endX / cellSize) + originI;
+    int y1 = std::floor(endY / cellSize) + originJ;
+
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    int xcur = x0;
+    int ycur = y0;
+
+    while (true) {
+        // mimo mapy
+        if (xcur < 0 || xcur >= mapWidth || ycur < 0 || ycur >= mapHeight)
+            break;
+
+        // narazil na stenu
+        if (map[xcur][ycur] == 1) {
+            double wx = (xcur - originI) * cellSize;
+            double wy = (ycur - originJ) * cellSize;
+            return std::sqrt((wx - x)*(wx - x) + (wy - y)*(wy - y));
+        }
+
+        if (xcur == x1 && ycur == y1)
+            break;
+
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; xcur += sx; }
+        if (e2 <  dx) { err += dx; ycur += sy; }
+    }
+
+    return maxRange;
+}
+
+
+
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
 int robot::processThisRobot(const TKobukiData &robotdata)
@@ -671,7 +1050,7 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
     copyOfLaserData=laserData;
 
-
+    uloha_5(laserData);
 
 
 
