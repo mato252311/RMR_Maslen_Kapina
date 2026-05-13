@@ -52,12 +52,13 @@ public:
   void EnlargeMap();
   bool localizationEnabled = false;
   void useMonteCarloPose();
+  void setAutoMode(bool state);
 
   struct Particle {
       double x, y, fi;
       double weight;
   };
-  int numParticles = 500;
+  int numParticles = 300;
   double estimatedX = 0;
   double estimatedY = 0;
   double estimatedFi = 0;

@@ -236,7 +236,7 @@ void robot::uloha_1(const TKobukiData &robotdata){
         rotationspeed = aim_w;
     }
 
-    fi_prev = fi_now;
+fi_prev = fi_now;
 
     Pose p;
     p.x = x;
@@ -903,25 +903,19 @@ void robot::uloha_5_pohyb(double length, double delta_fi)
     static std::default_random_engine gen(rd());
 
     // MENŠÍ ALE NIE NULOVÝ ŠUM
-    double trans_sigma =
-        0.01 + std::abs(length) * 0.01;
+    double trans_sigma = 0.01 + std::abs(length) * 0.01;
 
-    double rot_sigma =
-        0.01 + std::abs(delta_fi) * 0.01    ;
+    double rot_sigma = 0.01 + std::abs(delta_fi) * 0.01;
 
-    std::normal_distribution<double>
-        noise_length(0.0, trans_sigma);
+    std::normal_distribution<double>noise_length(0.0, trans_sigma);
 
-    std::normal_distribution<double>
-        noise_angle(0.0, rot_sigma);
+    std::normal_distribution<double>noise_angle(0.0, rot_sigma);
 
     for (auto& p : particles) {
 
-        double noisy_length =
-            length + noise_length(gen);
+        double noisy_length = length + noise_length(gen);
 
-        double noisy_delta_fi =
-            delta_fi + noise_angle(gen);
+        double noisy_delta_fi = delta_fi + noise_angle(gen);
 
         // najprv rotácia
         p.fi += noisy_delta_fi;
@@ -997,7 +991,10 @@ void robot::useMonteCarloPose()
               << std::endl;
 }
 
-
+void robot::setAutoMode(bool state)
+{
+    useDirectCommands = !state;
+}
 
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
@@ -1006,7 +1003,6 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
 
     uloha_1(robotdata);
-
 
 
     ///tu mozete robit s datami z robota

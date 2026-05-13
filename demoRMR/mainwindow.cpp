@@ -252,6 +252,8 @@ void MainWindow::on_pushButton_10_clicked()
 {
     _robot.setGoal(ui->doubleSpinBox->value(), ui->doubleSpinBox_2->value());
     _robot.rezim_navigacie = 1;
+    _robot.setAutoMode(true);
+
 }
 
 void MainWindow::on_pushButton_11_clicked()
