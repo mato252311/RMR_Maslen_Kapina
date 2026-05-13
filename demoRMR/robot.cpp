@@ -131,7 +131,10 @@ void robot::uloha_1(const TKobukiData &robotdata){
     double length = (lengthLeft + lengthRight) / 2.0;
 
 
-    uloha_5_pohyb(length, delta_fi);
+    if(localizationEnabled)
+    {
+        uloha_5_pohyb(length, delta_fi);
+    }
 
 
     x += length * std::cos(fi);
@@ -760,6 +763,7 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
 
     double max_weight = -1.0;
 
+    if(particles.empty()) return;
     Particle best_particle = particles[0];
 
     for (const auto& p : particles) {
@@ -795,6 +799,8 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         neff += p.weight * p.weight;
     }
 
+    if(neff < 1e-12)
+        neff = 1e-12;
     neff = 1.0 / neff;
 
     // =========================================================
@@ -976,6 +982,21 @@ double robot::expectedRangeFromMapBresenham(double x, double y, double angle, do
     return maxRange;
 }
 
+void robot::useMonteCarloPose()
+{
+    x = estimatedX;
+    y = estimatedY;
+    fi = estimatedFi;
+
+    fi_prev = fi;
+
+    std::cout << "Pose updated from Monte Carlo:"
+              << " X=" << x
+              << " Y=" << y
+              << " FI=" << fi
+              << std::endl;
+}
+
 
 
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii initAndStartRobot
@@ -1039,7 +1060,10 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
     copyOfLaserData=laserData;
 
-    uloha_5(laserData);
+    if(localizationEnabled)
+    {
+        uloha_5(laserData);
+    }
 
 
 
@@ -1211,7 +1235,11 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
 
             // zistíme veľkost bodu v uhloch
             float dst = laserData.at(i).scanDistance;
-            float alpha = asin(VFHpointSize / dst) / 3.14159 * 180;
+            double val = VFHpointSize / dst;
+
+            val = std::clamp(val, -1.0, 1.0);
+
+            float alpha = asin(val);
 
             int from = ((laserData.at(i).scanAngle) - alpha) / sectorSize;
             int to = ((laserData.at(i).scanAngle) + alpha) / sectorSize + 1;
