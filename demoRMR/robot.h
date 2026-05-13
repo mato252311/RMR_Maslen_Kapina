@@ -112,8 +112,8 @@ private:
   unsigned short prevEncoderRight = 0;      //predchadzajuce
   const long double tickToMeter = 0.000085292090497737556558;
   const long double d = 0.23;
-  double maxAccV = 5.0;
-  double maxAccW = 0.025;
+  double maxAccV = 10.0;
+  double maxAccW = 0.020;
 
   // uloha1
   double v_max = 250;
