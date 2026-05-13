@@ -385,7 +385,7 @@ int robot::processNavigation(const std::vector<LaserData> &xlaserData){
 
 
     double l_error = std::sqrt(deltaXGlobal*deltaXGlobal + deltaYGlobal*deltaYGlobal);
-    if (l_error < 0.25 && navigation) {
+    if (l_error < 0.3 && navigation) {
         goalX = goalXGlobal;
         goalY = goalYGlobal;
         navigation = false;
@@ -490,12 +490,12 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
             bHistogramVFH.at(i) = false;
     }
 
-
-    for(int i = laserData.size() * 2; i < laserData.size(); i++){
+    // dynamicke obmedzenia
+    for(int i = laserData.size() / 2; i < laserData.size(); i++){
         if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
             float dst = laserData.at(i).scanDistance;
 
-            if(dst < this->VFHpointSize * 3){
+            if(dst < this->VFHpointSize * 1.5){
                 for(int j = 0; j < nSector/2; j++){
                     bHistogramVFH.at(j) = true;
                 }
@@ -503,10 +503,10 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
         }
     }
 
-    for(int i = 0; i < laserData.size()/ 3; i++){
+    for(int i = 0; i < laserData.size()/ 2; i++){
         if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
             float dst = laserData.at(i).scanDistance;
-            if(dst < this->VFHpointSize * 2){
+            if(dst < this->VFHpointSize * 1.5){
                 for(int j = nSector/2; j < nSector; j++){
                     bHistogramVFH.at(j) = true;
                 }
@@ -545,7 +545,7 @@ void robot::calculateCandidatesNav(){
     short sectorStart, sectorSize;
     bool sector = false;
 
-    // todo prejst histogram, najst volne miesta
+    //  prejst histogram, najst volne miesta
     for(int i = 0; i < nSector * 2; i++){
         if(!this->bHistogramVFH.at(i % nSector)){ // volne
             if(sector){
