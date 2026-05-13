@@ -703,47 +703,41 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
     // 2. VÝPOČET VÁH
     // =========================================================
 
+    // =========================================================
+    // 2. VÝPOČET VÁH (Model priemernej chyby - MAE)
+    // =========================================================
+
     double totalWeight = 0.0;
 
-    // Väčší sigma -> stabilnejší filter
-    const double sigma = 0.05;
-
-    const double var = sigma * sigma;
-
     for (auto& p : particles) {
+        double sum_error = 0.0;
+        int valid_rays = 0;
 
-        // DÔLEŽITÉ:
-        // už nepoužívame násobenie likelihoodov
-        p.weight = 0.0;
-
-        // viac laser lúčov
         for (int i = 0; i < (int)laserData.size(); i += 5) {
+            double measured = laserData[i].scanDistance / 1000.0;
 
-            double measured =
-                laserData[i].scanDistance / 1000.0;
+            // Tvoj filter prekážok a robota
+            if (measured < 0.2 || measured > 3.5) continue;
+            if (measured >= 0.6 && measured <= 0.7) continue;
 
-            double angle_rad =
-                laserData[i].scanAngle * M_PI / 180.0;
+            double angle_rad = (laserData[i].scanAngle / 360.0) * (2 * M_PI);
+            double expected = expectedRangeFromMapBresenham(p.x, p.y, p.fi - angle_rad, 3.5);
 
-            double expected =
-                expectedRangeFromMapBresenham(
-                    p.x,
-                    p.y,
-                    p.fi + angle_rad,
-                    3.5
-                    );
-
-            double diff = measured - expected;
-
-            // Gaussian likelihood
-            double likelihood =
-                std::exp(
-                    -0.5 * (diff * diff) / var
-                    );
-
-            // SUM namiesto MULTIPLY
-            p.weight += likelihood;
+            // Spočítame absolútnu odchýlku v metroch
+            double diff = std::abs(measured - expected);
+            sum_error += diff;
+            valid_rays++;
         }
+
+        // Výpočet priemernej chyby pre túto časticu
+        double avg_error = (valid_rays > 0) ? (sum_error / valid_rays) : 10.0;
+
+        // Exponenciálna premena: čím menšia chyba, tým obrovskejšia váha.
+        // Konštanta 0.1 určuje prísnosť. Ak to nebude konvergovať, zníž ju na 0.05
+        p.weight = std::exp(-avg_error / 0.1);
+
+        // Ochrana pred nulou
+        if (p.weight < 1e-9) p.weight = 1e-9;
 
         totalWeight += p.weight;
     }
@@ -808,63 +802,58 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
     // =========================================================
 
     // Resamplujeme iba ak treba
-    if (neff < numParticles * 0.5) {
+    if (true) {
 
         std::vector<Particle> newParticles;
-
         newParticles.reserve(numParticles);
 
         static std::default_random_engine gen_resample;
-
         std::uniform_real_distribution<double> dist(0.0, 1.0);
+        std::uniform_real_distribution<double> distPos(-7.0, 7.0);
+        std::uniform_real_distribution<double> distAngle(-M_PI, M_PI);
 
-        // MALÝ JITTER
-        std::normal_distribution<double> jitter_pos(0.0, 0.001);
-        std::normal_distribution<double> jitter_ang(0.0, 0.002);
+        std::normal_distribution<double> jitter_pos(0.0, 0.02); // Mierne väčší jitter
+        std::normal_distribution<double> jitter_ang(0.0, 0.05);
+
+        // Definujeme, koľko častíc sa resampluje a koľko sa hodí náhodne
+        int random_count = numParticles * 0.05; // 5% prieskumníkov (napr. 25 z 500)
+        int resampled_count = numParticles - random_count;
 
         for (int i = 0; i < numParticles; ++i) {
+            if (i < resampled_count) {
+                // TVOJ RULETOVÝ VÝBER
+                double r = dist(gen_resample);
+                double cumulativeWeight = 0.0;
+                for (const auto& p : particles) {
+                    cumulativeWeight += p.weight;
+                    if (r <= cumulativeWeight) {
+                        Particle np = p;
+                        np.x += jitter_pos(gen_resample);
+                        np.y += jitter_pos(gen_resample);
+                        np.fi += jitter_ang(gen_resample);
 
-            double r = dist(gen_resample);
+                        while (np.fi > M_PI) np.fi -= 2.0 * M_PI;
+                        while (np.fi < -M_PI) np.fi += 2.0 * M_PI;
 
-            double cumulativeWeight = 0.0;
-
-            for (const auto& p : particles) {
-
-                cumulativeWeight += p.weight;
-
-                if (r <= cumulativeWeight) {
-
-                    Particle np = p;
-
-                    // malý rozptyl
-                    np.x += jitter_pos(gen_resample);
-                    np.y += jitter_pos(gen_resample);
-                    np.fi += jitter_ang(gen_resample);
-
-                    // normalizácia uhla
-                    while (np.fi > M_PI)
-                        np.fi -= 2.0 * M_PI;
-
-                    while (np.fi < -M_PI)
-                        np.fi += 2.0 * M_PI;
-
-                    np.weight = 1.0 / numParticles;
-
-                    newParticles.push_back(np);
-
-                    break;
+                        np.weight = 1.0 / numParticles;
+                        newParticles.push_back(np);
+                        break;
+                    }
                 }
+            } else {
+                // TVOJI PRIESKUMNÍCI (Ochrana proti lokálnemu minimu)
+                Particle np;
+                np.x = distPos(gen_resample);
+                np.y = distPos(gen_resample);
+                np.fi = distAngle(gen_resample);
+                np.weight = 1.0 / numParticles;
+                newParticles.push_back(np);
             }
         }
 
-        // ochrana
         while (newParticles.size() < numParticles) {
-
-            newParticles.push_back(
-                particles.back()
-                );
+            newParticles.push_back(particles.back());
         }
-
         particles = std::move(newParticles);
     }
 
@@ -909,10 +898,10 @@ void robot::uloha_5_pohyb(double length, double delta_fi)
 
     // MENŠÍ ALE NIE NULOVÝ ŠUM
     double trans_sigma =
-        0.01 + std::abs(length) * 0.03;
+        0.01 + std::abs(length) * 0.01;
 
     double rot_sigma =
-        0.01 + std::abs(delta_fi) * 0.03;
+        0.01 + std::abs(delta_fi) * 0.01    ;
 
     std::normal_distribution<double>
         noise_length(0.0, trans_sigma);
@@ -938,8 +927,8 @@ void robot::uloha_5_pohyb(double length, double delta_fi)
             p.fi += 2.0 * M_PI;
 
         // potom translácia
-        p.x -= noisy_length * std::cos(p.fi);
-        p.y -= noisy_length * std::sin(p.fi);
+        p.x += noisy_length * std::cos(p.fi);
+        p.y += noisy_length * std::sin(p.fi);
     }
 }
 
