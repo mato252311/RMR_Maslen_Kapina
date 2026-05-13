@@ -50,6 +50,8 @@ public:
   bool mappingEnabled = false;
 
   void EnlargeMap();
+  bool localizationEnabled = false;
+  void useMonteCarloPose();
 
   struct Particle {
       double x, y, fi;

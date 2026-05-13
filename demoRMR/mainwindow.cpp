@@ -299,6 +299,29 @@ void MainWindow::on_pushButton_15_clicked()
     _robot.setLocation(robotsetX, robotsetY, robotsetfi);
 }
 
+void MainWindow::on_pushButton_16_clicked()
+{
+    _robot.useMonteCarloPose();
+
+    ui->doubleSpinBox_3->setValue(_robot.estimatedX);
+    ui->doubleSpinBox_4->setValue(_robot.estimatedY);
+    ui->doubleSpinBox_5->setValue(_robot.estimatedFi);
+}
+void MainWindow::on_pushButton_17_clicked()
+{
+    _robot.localizationEnabled =
+        !_robot.localizationEnabled;
+
+    if(_robot.localizationEnabled)
+    {
+        ui->pushButton_17->setText("Stop Localization");
+    }
+    else
+    {
+        ui->pushButton_17->setText("Start Localization");
+    }
+}
+
 void MainWindow::onMapReceived(QImage mapa_obr)
 {
     ui->label_mapa->setPixmap(QPixmap::fromImage(mapa_obr).scaled(ui->label_mapa->width(),
