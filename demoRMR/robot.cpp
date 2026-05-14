@@ -628,9 +628,10 @@ void robot::uloha_4() {
 
         double aktualny_ciel_X = planovana_cesta.front().first;
         double aktualny_ciel_Y = planovana_cesta.front().second;
+        this->navigation = true;
 
-        this->goalX = aktualny_ciel_X;
-        this->goalY = aktualny_ciel_Y;
+        this->goalNavX = aktualny_ciel_X;
+        this->goalNavY = aktualny_ciel_Y;
 
         double vzdialenost = std::hypot(aktualny_ciel_X - x, aktualny_ciel_Y - y);
 
@@ -1068,10 +1069,15 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
    // updateLaserPicture=1;
     if (rezim_navigacie == 1) {
         processNavigation(laserData); // Úloha 2
+
     }
     else if (rezim_navigacie == 2) {
         uloha_4(); // Úloha 4
+        processNavigation(laserData); // Úloha 2
+
     }
+
+    std::cout << goalNavX << std::endl;
 
 
     emit publishLidar(copyOfLaserData, bHistogramVFH);
@@ -1084,15 +1090,17 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
 int robot::processNavigation(const std::vector<LaserData> &xlaserData){
 
-    double deltaXGlobal = goalXGlobal - x;
-    double deltaYGlobal = goalYGlobal - y;
+    double deltaXGlobal = goalNavX - x;
+    double deltaYGlobal = goalNavY - y;
 
 
     double l_error = std::sqrt(deltaXGlobal*deltaXGlobal + deltaYGlobal*deltaYGlobal);
     if (l_error < 0.3 && navigation) {
-        goalX = goalXGlobal;
-        goalY = goalYGlobal;
-        navigation = false;
+        goalX = goalNavX;
+        goalY = goalNavY;
+        if(this->rezim_navigacie == 1){
+            navigation = false;
+        }
         std::cout << "V cieli!!" << std::endl;
     }
 
@@ -1160,7 +1168,6 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
         histogramVFH[i] = 0.0f;
     }
 
-
     // vytvorenie histogramu float
     for(int i = 0; i < laserData.size(); i++){
         if(laserData.at(i).scanDistance > VFHmin && laserData.at(i).scanDistance < VFHmax){
@@ -1203,7 +1210,7 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
         if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
             float dst = laserData.at(i).scanDistance;
 
-            if(dst < this->VFHpointSize * 1.5){
+            if(dst < this->VFHpointSize * 2){
                 for(int j = 0; j < nSector/2; j++){
                     bHistogramVFH.at(j) = true;
                 }
@@ -1214,7 +1221,7 @@ void robot::processHistogram(const std::vector<LaserData> &laserData){
     for(int i = 0; i < laserData.size()/ 2; i++){
         if(laserData.at(i).scanDistance < VFHmaskMax && laserData.at(i).scanDistance > VFHpointSize / 2){
             float dst = laserData.at(i).scanDistance;
-            if(dst < this->VFHpointSize * 1.5){
+            if(dst < this->VFHpointSize * 2){
                 for(int j = nSector/2; j < nSector; j++){
                     bHistogramVFH.at(j) = true;
                 }
@@ -1233,8 +1240,8 @@ void robot::calculateCandidatesNav(){
     this->candidatesY.erase(candidatesY.begin(), candidatesY.end());
 
 
-    double deltaXGlobal = goalXGlobal - x;
-    double deltaYGlobal = goalYGlobal - y;
+    double deltaXGlobal = goalNavX - x;
+    double deltaYGlobal = goalNavY - y;
 
     double w_targetGlobal = std::atan2(deltaYGlobal, deltaXGlobal);
 
@@ -1245,8 +1252,8 @@ void robot::calculateCandidatesNav(){
     if(!bHistogramVFH.at(sectorGlobalGoal)){
         this->candidates.insert(this->candidates.end(), w_targetGlobal);
 
-        this->candidatesX.insert(this->candidatesX.end(), x + cos(-w_targetGlobal));
-        this->candidatesY.insert(this->candidatesY.end(), y - sin(-w_targetGlobal));
+        this->candidatesX.insert(this->candidatesX.end(), x + cos(w_targetGlobal));
+        this->candidatesY.insert(this->candidatesY.end(), y + sin(w_targetGlobal));
     }
 
 
@@ -1331,6 +1338,19 @@ int robot::getGoalX(){
 
 int robot::getGoalY(){
     int result = -((this->goalY - y) * cos(fi) - (this->goalX - x) * sin(fi))  * 100;
+
+    return result;
+}
+
+
+int robot::getGoalNavX(){
+    int result = -((this->goalNavX - x) * cos(fi) + (this->goalNavY - y) * sin(fi)) * 100;
+
+    return result;
+}
+
+int robot::getGoalNavY(){
+    int result = -((this->goalNavY - y) * cos(fi) - (this->goalNavX - x) * sin(fi))  * 100;
 
     return result;
 }

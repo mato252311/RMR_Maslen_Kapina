@@ -78,6 +78,10 @@ public:
   int getGoalX();
   int getGoalY();
 
+  int getGoalNavX();
+  int getGoalNavY();
+
+
   int getGoalGlobalX();
   int getGoalGlobalY();
 
@@ -102,6 +106,9 @@ private:
   double goalX = 0;
   double goalY = 0;
 
+  double goalNavX = 0;
+  double goalNavY = 0;
+
   double goalXGlobal = 0;
   double goalYGlobal = 0;
 
@@ -109,6 +116,7 @@ private:
   double fi_prev;                           //predchadzajuce
   double fi_now;
   double fi_offset;
+  double fi_last_nav_inter = 0;
   unsigned short prevEncoderLeft = 0;       //predchadzajuce
   unsigned short prevEncoderRight = 0;      //predchadzajuce
   const long double tickToMeter = 0.000085292090497737556558;
@@ -165,7 +173,7 @@ private:
     std::vector<bool> bHistogramVFH;
   int printDebugLidar = 0;
 
-  float VFHmin = 100.0f, VFHmax = 1500.0f, VFHmaskMax = 1000, VFHpointSize = 150.0f, VFHcutOffLow = 7, VFHcutOffHigh = 8;
+  float VFHmin = 100.0f, VFHmax = 1500.0f, VFHmaskMax = 1000, VFHpointSize = 150.0f, VFHcutOffLow = 4.5, VFHcutOffHigh = 6;
 
   /// toto su callbacky co sa sa volaju s novymi datami
   void uloha_1(const::TKobukiData &robotdata);

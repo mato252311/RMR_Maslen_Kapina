@@ -99,12 +99,12 @@ void MainWindow::paintEvent(QPaintEvent *event)
 
 
 
-            // vykreslenie kandidator
-            pero.setColor(Qt::magenta);//farba je fialova
-            painter.setPen(pero);
-            for(int i = 0; i < _robot.getCandidatesX().size(); i++){
-                painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getCandidatesY().at(i), rect.height()/2+rect.topLeft().y() + _robot.getCandidatesX().at(i)) ,5,5);
-            }
+            // // vykreslenie kandidator
+            // pero.setColor(Qt::magenta);//farba je fialova
+            // painter.setPen(pero);
+            // for(int i = 0; i < _robot.getCandidatesX().size(); i++){
+            //     painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getCandidatesY().at(i), rect.height()/2+rect.topLeft().y() + _robot.getCandidatesX().at(i)) ,5,5);
+            // }
 
             pero.setColor(Qt::white);//farba je biela
             painter.setPen(pero);
@@ -115,6 +115,11 @@ void MainWindow::paintEvent(QPaintEvent *event)
             pero.setColor(Qt::blue);//farba je modra
             painter.setPen(pero);
             painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalX()) ,5,5);
+
+            // vykreslenie navigacneho cila
+            pero.setColor(Qt::darkCyan);//farba
+            painter.setPen(pero);
+            painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x() + _robot.getGoalNavY(), rect.height()/2+rect.topLeft().y() + _robot.getGoalNavX()) ,5,5);
 
 
             // vykreslenie histogramu
