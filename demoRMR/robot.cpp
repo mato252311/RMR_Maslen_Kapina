@@ -641,6 +641,7 @@ void robot::uloha_4() {
             if (planovana_cesta.empty()) {
                 std::cout << "finish ciel" << std::endl;
                 cesta_vypocitana = false;
+                this->navigation = false; 
             }
         }
     }
@@ -1076,9 +1077,6 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
         processNavigation(laserData); // Úloha 2
 
     }
-
-    std::cout << goalNavX << std::endl;
-
 
     emit publishLidar(copyOfLaserData, bHistogramVFH);
    // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
