@@ -47,7 +47,7 @@ Projekt implementuje lokalizáciu, mapovanie, plánovanie trajektórie a Monte C
 
 ---
 Úloha 1 – Lokalizácia a polohovanie
-
+---
 Funkcia:
 ```
 void robot::uloha_1(const TKobukiData &robotdata)
@@ -149,9 +149,9 @@ Používa sa pre:
 mapovanie
 interpoláciu
 synchronizáciu LiDAR dát
----
-Úloha 3 – Mapovanie priestoru
 
+Úloha 3 – Mapovanie priestoru
+---
 Funkcia:
 ```
 void robot::uloha_3(const std::vector<LaserData>& laserData)
@@ -228,9 +228,9 @@ Funkcia:
 importMapFromCSV(...)
 ```
 Načíta mapu zo súboru CSV späť do programu.
----
-Úloha 4 – Plánovanie trajektórie
 
+Úloha 4 – Plánovanie trajektórie
+---
 Funkcia:
 ```
 void robot::uloha_4()
@@ -296,9 +296,9 @@ po priblížení:
 vzdialenost < 0.10
 ```
 prejde na ďalší bod.
----
-Úloha 5 – Monte Carlo lokalizácia
 
+Úloha 5 – Monte Carlo lokalizácia
+---
 Funkcia:
 ```
 void robot::uloha_5(const std::vector<LaserData>& laserData)
