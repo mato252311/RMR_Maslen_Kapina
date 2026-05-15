@@ -679,9 +679,9 @@ void robot::EnlargeMap() {
 
 void robot::uloha_5(const std::vector<LaserData>& laserData)
 {
-    // =========================================================
+
     // 1. INITIALIZÁCIA PARTICLES
-    // =========================================================
+
 
     if (particles.empty()) {
 
@@ -704,13 +704,8 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         }
     }
 
-    // =========================================================
     // 2. VÝPOČET VÁH
-    // =========================================================
 
-    // =========================================================
-    // 2. VÝPOČET VÁH (Model priemernej chyby - MAE)
-    // =========================================================
 
     double totalWeight = 0.0;
 
@@ -721,20 +716,18 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         for (int i = 0; i < (int)laserData.size(); i += 5) {
             double measured = laserData[i].scanDistance / 1000.0;
 
-            // Tvoj filter prekážok a robota
+
             if (measured < 0.2 || measured > 3.5) continue;
             if (measured >= 0.6 && measured <= 0.7) continue;
 
             double angle_rad = (laserData[i].scanAngle / 360.0) * (2 * M_PI);
             double expected = expectedRangeFromMapBresenham(p.x, p.y, p.fi - angle_rad, 3.5);
 
-            // Spočítame absolútnu odchýlku v metroch
             double diff = std::abs(measured - expected);
             sum_error += diff;
             valid_rays++;
         }
 
-        // Výpočet priemernej chyby pre túto časticu
         double avg_error = (valid_rays > 0) ? (sum_error / valid_rays) : 10.0;
 
         // Exponenciálna premena: čím menšia chyba, tým obrovskejšia váha.
@@ -747,9 +740,7 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         totalWeight += p.weight;
     }
 
-    // =========================================================
     // 3. NORMALIZÁCIA
-    // =========================================================
 
     if (totalWeight < 1e-12)
         totalWeight = 1e-12;
@@ -759,9 +750,9 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         p.weight /= totalWeight;
     }
 
-    // =========================================================
+
     // 4. ODHAD POLOHY
-    // =========================================================
+
 
     double max_weight = -1.0;
 
@@ -790,9 +781,8 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
 
     estimatedFi = best_particle.fi;
 
-    // =========================================================
     // 5. EFFECTIVE SAMPLE SIZE
-    // =========================================================
+
 
     double neff = 0.0;
 
@@ -805,9 +795,8 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         neff = 1e-12;
     neff = 1.0 / neff;
 
-    // =========================================================
     // 6. RESAMPLING
-    // =========================================================
+
 
     // Resamplujeme iba ak treba
     if (true) {
@@ -820,11 +809,11 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         std::uniform_real_distribution<double> distPos(-7.0, 7.0);
         std::uniform_real_distribution<double> distAngle(-M_PI, M_PI);
 
-        std::normal_distribution<double> jitter_pos(0.0, 0.02); // Mierne väčší jitter
+        std::normal_distribution<double> jitter_pos(0.0, 0.02);
         std::normal_distribution<double> jitter_ang(0.0, 0.05);
 
-        // Definujeme, koľko častíc sa resampluje a koľko sa hodí náhodne
-        int random_count = numParticles * 0.05; // 5% prieskumníkov (napr. 25 z 500)
+
+        int random_count = numParticles * 0.05; // 5% prieskumníkov
         int resampled_count = numParticles - random_count;
 
         for (int i = 0; i < numParticles; ++i) {
@@ -849,7 +838,7 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
                     }
                 }
             } else {
-                // TVOJI PRIESKUMNÍCI (Ochrana proti lokálnemu minimu)
+
                 Particle np;
                 np.x = distPos(gen_resample);
                 np.y = distPos(gen_resample);
@@ -865,9 +854,8 @@ void robot::uloha_5(const std::vector<LaserData>& laserData)
         particles = std::move(newParticles);
     }
 
-    // =========================================================
     // 7. VIZUALIZÁCIA
-    // =========================================================
+
 
     std::vector<std::pair<int,int>> particleCells;
 
