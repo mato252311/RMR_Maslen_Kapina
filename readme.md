@@ -1,5 +1,5 @@
 
-# Mobilná robotika – Zadania 1, 2, 3, 4, 5
+# Mobilná robotika
 
 Projekt implementuje lokalizáciu, navigáciu mapovanie, plánovanie trajektórie a Monte Carlo lokalizáciu mobilného robota Kobuki pomocou LiDAR senzora.
 
@@ -7,11 +7,52 @@ Projekt implementuje lokalizáciu, navigáciu mapovanie, plánovanie trajektóri
 
 # Obsah
 
-1. Úloha 1 – Lokalizácia a polohovanie
-2. Úloha 2 - Navigácia
-3. Úloha 3 – Mapovanie priestoru
-4. Úloha 4 – Plánovanie trajektórie
-5. Úloha 5 – Monte Carlo lokalizácia (Particle Filter)
+1. Používateľská príručka
+2. Úloha 1 – Lokalizácia a polohovanie
+3. Úloha 2 - Navigácia
+4. Úloha 3 – Mapovanie priestoru
+5. Úloha 4 – Plánovanie trajektórie
+6. Úloha 5 – Monte Carlo lokalizácia (Particle Filter)
+
+---
+## Používateľská príručka
+
+Po spustení aplikácie sa nám otvorí desktop aplikáca: 
+<img src="obrazovka_empty.png" alt="Užívateľká prostredie">
+
+Pre pripojenie sa na robota klikneme tlačítko Start. V čiernom okne nám zobrazí robot s polohou lidarových lúčov a VFH histogramom. 
+
+<img src="obrazovka.png" alt="Užívateľká prostredie so spusteným robotom">
+
+Pre spustenie map napravo klikneme na Vykresli mapu vpravo dole.
+
+### Ovládanie 
+Robota vieme ovládať 3 spôsobmi: 
+ - manuálne pomocov tlačítiek hore
+ - navigáciou lokálnou 
+ - globálnou navigáciou 
+
+#### Lokálna navigácia
+
+Pod lokálnou navigáciou sa rozumie navigovanie pomocou VFH histogramu. Pre polohovanie pomocou lokálnej navigácie nastvavíme žiadanú polohu robota v inputoch napravo od okna s robotom. Robot sa naviguje podľa svojo počiatočného súradnicového systému.
+
+Lokálna navigácia zvláda obísť pohyblivé prekážky, nedokáže však násjť optimálnu cestu do cieľa, na to systém obsahuje globálnu navigáciu na známej mape. 
+
+#### Globálna navigácia
+
+Pre správne fungovanie globálnej navigácie potrebujeme poznať začiatočnu polohu robota a mapu na ktorej sa nachádza. 
+
+Mapu vieme získať využitím mapovania, ktoré je ďaľšia funkcia. Polohu vieme zadať ručne, alebo využiť monte carlo algorimu. 
+
+Keď už poznáme polohu a mapu, vieme zadať požadovanú polohu do Mapa: X a Y a kliknutím tlačídla Cieľ mapa zapneme navigáciu. 
+Navigácia využíva aj princíp lokálnej navigácie na obchádzanie prekážok, ktoré nie sú na mape.
+
+### Mapovanie 
+
+Pre mapovanie klikneme na tlačidlo mapovať a manuálne prechádzame po mape.  V pravom dolnom rohu sa nám začne vykreslovať mapa. Pre uloženie ukončíme mapovanie rovnakým tlačidlom. 
+
+Následne môžeme mapu používať na Monte carlo lokalizáciu a navigáciu po známej mape. 
+
 
 ---
 Úloha 1 – Lokalizácia a polohovanie
@@ -118,7 +159,7 @@ mapovanie
 interpoláciu
 synchronizáciu LiDAR dát
 
-## Úloha 2 - navigácia
+## Úloha 2 - Navigácia
 
 Na lokálnu navigáciu používame VFH+ histrogram, na ktorý nepotrebujeme poznať mapu, funguje iba na základe lidaru.
 
